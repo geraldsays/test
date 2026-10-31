@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<!--
+  Gerald Owusu Portfolio
+  Copyright (c) 2026 Gerald Owusu. All rights reserved.
+  Unauthorized reproduction or distribution of this file, via any medium,
+  is strictly prohibited without written permission.
+  Contact: Geraldsays@gmail.com
+-->
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<meta name="description" content="Gerald Owusu — educator, IT professional, Android kernel developer, and health informatics practitioner based in Ghana."/>
+<meta name="author" content="Gerald Owusu"/>
+<meta name="copyright" content="Copyright (c) 2026 Gerald Owusu. All rights reserved."/>
+<title>Gerald Owusu | Educator &amp; IT Professional</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css"/>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💻</text></svg>"/>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background:#0a0a12;color:#eaeaea;line-height:1.6;scroll-behavior:smooth;transition:background .3s,color .3s}
+a{text-decoration:none;color:inherit}
+.container{max-width:1100px;margin:0 auto;padding:0 2rem}
+::-webkit-scrollbar{width:8px}
+::-webkit-scrollbar-track{background:#0a0a12}
+::-webkit-scrollbar-thumb{background:#00ffaa;border-radius:10px}
+::-webkit-scrollbar-thumb:hover{background:#00cc88}
+nav{position:fixed;top:0;left:0;width:100%;background:rgba(10,10,18,.92);backdrop-filter:blur(10px);z-index:100;padding:.8rem 0;border-bottom:1px solid rgba(0,255,170,.15);transition:background .3s,border-color .3s}
+nav .container{display:flex;justify-content:space-between;align-items:center}
+.logo{font-size:1.6rem;font-weight:700;background:linear-gradient(135deg,#00ffaa,#00cc88,#00ffaa);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;letter-spacing:-.5px}
+.logo span{color:#00ffaa;-webkit-text-fill-color:#00ffaa}
+.nav-links{display:flex;gap:2rem;list-style:none;align-items:center}
+.nav-links a{font-weight:500;transition:color .3s;font-size:1rem;position:relative;color:#aaa}
+.nav-links a::after{content:'';position:absolute;bottom:-4px;left:0;width:0;height:2px;background:#00ffaa;transition:width .3s;box-shadow:0 0 10px #00ffaa}
+.nav-links a:hover{color:#00ffaa}
+.nav-links a:hover::after{width:100%}
+.status-badge{background:rgba(0,255,170,.12);border:1px solid #00ffaa;color:#00ffaa;padding:.3rem 1rem;border-radius:50px;font-size:.75rem;font-weight:600;display:inline-flex;align-items:center;gap:6px;animation:pulseBadge 2s ease-in-out infinite}
+.status-badge .dot{width:8px;height:8px;background:#00ffaa;border-radius:50%;display:inline-block;animation:blink 1.5s ease-in-out infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.2}}
+@keyframes pulseBadge{0%,100%{box-shadow:0 0 10px rgba(0,255,170,.1)}50%{box-shadow:0 0 25px rgba(0,255,170,.2)}}
+.hamburger{display:none;font-size:1.8rem;cursor:pointer;color:#eaeaea}
+.theme-toggle{background:#12121f;border:1px solid rgba(0,255,170,.15);border-radius:50px;padding:.4rem .9rem;font-size:.85rem;color:#aaa;cursor:pointer;font-family:inherit;transition:all .3s;display:inline-flex;align-items:center;gap:6px;margin-left:.8rem}
+.theme-toggle:hover{border-color:#00ffaa;color:#00ffaa}
+.hero{min-height:auto;padding:120px 0 80px;position:relative;overflow:hidden}
+.hero::before{content:'';position:absolute;width:600px;height:600px;background:radial-gradient(circle,rgba(0,255,170,.06),transparent 70%);top:-200px;right:-200px;border-radius:50%;animation:pulseGlow 8s ease-in-out infinite}
+.hero::after{content:'';position:absolute;width:400px;height:400px;background:radial-gradient(circle,rgba(0,200,255,.05),transparent 70%);bottom:-100px;left:-100px;border-radius:50%;animation:pulseGlow 10s ease-in-out infinite reverse}
+@keyframes pulseGlow{0%,100%{transform:scale(1);opacity:.6}50%{transform:scale(1.2);opacity:1}}
+.hero .container{display:flex;flex-direction:column;align-items:center;text-align:center;gap:0;position:relative;z-index:1}
+.hero-content{width:100%;max-width:900px;margin:0 auto}
+.hero-content h1{font-size:3.2rem;font-weight:700;margin-bottom:.3rem}
+.hero-content h1 span{background:linear-gradient(135deg,#00ffaa,#00cc88);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.hero-content .tagline{font-size:1.2rem;color:#00ffaa;margin-bottom:1.5rem;font-weight:400;text-shadow:0 0 20px rgba(0,255,170,.2);letter-spacing:.5px}
+.hero-content .tagline i{margin-right:8px}
+.terminal-bio{background:#0a0a12;border:1px solid rgba(0,255,170,.15);border-radius:12px;padding:1.4rem 1.6rem;font-family:'Courier New',monospace;margin:0 auto 2rem;width:100%;box-shadow:0 0 40px rgba(0,255,170,.03);transition:border-color .3s,background .3s;text-align:left}
+.terminal-bio:hover{border-color:rgba(0,255,170,.3)}
+.terminal-bio .line{padding:.15rem 0}
+.terminal-bio .prompt{color:#00ffaa}
+.terminal-bio .output{color:#aaa;padding-left:1.5rem}
+.terminal-bio .highlight-text{color:#fff}
+.terminal-bio .green{color:#00ffaa}
+.btn-group{display:flex;gap:1rem;flex-wrap:wrap;justify-content:center;margin-bottom:2.5rem}
+.btn{display:inline-block;padding:.8rem 2.2rem;border-radius:50px;font-weight:600;transition:all .3s;border:2px solid transparent;cursor:pointer;font-size:1rem}
+.btn-primary{background:linear-gradient(135deg,#00ffaa,#00cc88);color:#0a0a12;border-color:#00ffaa;box-shadow:0 0 25px rgba(0,255,170,.25)}
+.btn-primary:hover{transform:translateY(-3px);box-shadow:0 10px 35px rgba(0,255,170,.4)}
+.btn-outline{border-color:#00ffaa;color:#00ffaa;background:transparent}
+.btn-outline:hover{background:#00ffaa;color:#0a0a12;transform:translateY(-3px);box-shadow:0 10px 30px rgba(0,255,170,.2)}
+.btn-resume{background:transparent;border-color:#4facfe;color:#4facfe;opacity:.6;cursor:not-allowed}
+.btn-resume:hover{transform:none}
+.hero-image{display:flex;justify-content:center;align-items:center;margin-top:.5rem}
+.avatar-wrapper{width:220px;height:220px;border-radius:50%;background:linear-gradient(135deg,#00ffaa,#00cc88,#00ffaa);padding:5px;animation:float 5s ease-in-out infinite;box-shadow:0 0 60px rgba(0,255,170,.15)}
+.avatar{width:100%;height:100%;border-radius:50%;background:#0a0a12;display:flex;align-items:center;justify-content:center;font-size:4.5rem;color:#00ffaa;transition:background .3s}
+@keyframes float{0%,100%{transform:translateY(0) rotate(0)}50%{transform:translateY(-18px) rotate(2deg)}}
+section{padding:5rem 0;transition:background .3s}
+.section-title{font-size:2.4rem;font-weight:700;margin-bottom:1rem;position:relative;display:inline-block}
+.section-title::after{content:'';position:absolute;left:0;bottom:-6px;width:60px;height:4px;background:linear-gradient(135deg,#00ffaa,#00cc88);border-radius:4px;box-shadow:0 0 20px rgba(0,255,170,.3)}
+.section-sub{color:#aaa;margin-bottom:3rem;font-size:1.1rem}
+.skills-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:1.8rem;margin-top:1rem}
+.skill-card{background:#12121f;padding:1.8rem 1rem;border-radius:16px;text-align:center;transition:transform .3s,box-shadow .3s,border-color .3s,background .3s;border:1px solid rgba(0,255,170,.08)}
+.skill-card:hover{transform:translateY(-8px);border-color:#00ffaa;box-shadow:0 0 30px rgba(0,255,170,.05)}
+.skill-card i{font-size:2.8rem;color:#00ffaa;margin-bottom:.6rem}
+.skill-card span{display:block;font-weight:500;color:#ddd}
+.skill-card.teaching{border-color:rgba(0,200,255,.2);background:linear-gradient(135deg,rgba(0,200,255,.05),transparent)}
+.skill-card.teaching i{color:#00c8ff}
+.skill-card.teaching:hover{border-color:#00c8ff}
+.skill-card.hardware{border-color:rgba(79,172,254,.2);background:linear-gradient(135deg,rgba(79,172,254,.05),transparent)}
+.skill-card.hardware i{color:#4facfe}
+.skill-card.hardware:hover{border-color:#4facfe}
+.projects-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:2rem}
+.project-card{background:#12121f;padding:2rem 1.5rem;border-radius:20px;border:1px solid rgba(0,255,170,.06);transition:transform .3s,border-color .3s,box-shadow .3s,background .3s;position:relative;overflow:hidden}
+.project-card::before{content:'';position:absolute;top:0;left:0;width:100%;height:3px;background:linear-gradient(90deg,#00ffaa,#00cc88);opacity:0;transition:opacity .3s}
+.project-card:hover::before{opacity:1}
+.project-card:hover{transform:translateY(-6px);border-color:#00ffaa;box-shadow:0 0 40px rgba(0,255,170,.04)}
+.project-card i{font-size:2.5rem;color:#00ffaa;margin-bottom:1rem}
+.project-card h3{margin-bottom:.5rem;color:#fff}
+.project-card p{color:#bbb;font-size:.95rem}
+.project-tag{display:inline-block;margin-top:1rem;padding:.25rem 1rem;border-radius:30px;background:rgba(0,255,170,.12);color:#00ffaa;font-size:.75rem;font-weight:600;border:1px solid rgba(0,255,170,.15)}
+.project-link{display:inline-block;margin-top:1rem;margin-left:.5rem;padding:.25rem 1rem;border-radius:30px;background:#00ffaa;color:#0a0a12;font-size:.75rem;font-weight:700;border:1px solid #00ffaa;transition:all .3s}
+.project-link:hover{background:#00cc88;transform:translateY(-2px)}
+.project-card.coming-soon{opacity:.55}
+.project-card.coming-soon i{color:#666}
+.blog-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:2rem}
+.blog-card{background:#12121f;padding:1.8rem 1.5rem;border-radius:16px;border:1px solid rgba(0,255,170,.06);transition:all .3s}
+.blog-card:hover{border-color:#00ffaa;transform:translateY(-4px)}
+.blog-card .blog-date{color:#666;font-size:.8rem}
+.blog-card h4{margin:.5rem 0;color:#fff}
+.blog-card p{color:#999;font-size:.9rem}
+.blog-card .read-more{color:#666;font-size:.85rem;font-weight:600;display:inline-block;margin-top:.8rem;cursor:not-allowed}
+.blog-card.coming-soon{opacity:.55}
+.contact-info{display:flex;flex-wrap:wrap;gap:2rem;margin-top:1.5rem}
+.contact-item{display:flex;align-items:center;gap:.8rem;background:#12121f;padding:.8rem 1.8rem;border-radius:60px;border:1px solid rgba(0,255,170,.06);transition:border-color .3s,box-shadow .3s,background .3s}
+.contact-item:hover{border-color:#00ffaa;box-shadow:0 0 25px rgba(0,255,170,.05)}
+.contact-item i{font-size:1.4rem;color:#00ffaa}
+.contact-item a{color:#ddd;transition:color .3s}
+.contact-item a:hover{color:#00ffaa}
+.social-links{display:flex;gap:1.2rem;margin-top:2rem}
+.social-links a{display:inline-flex;align-items:center;justify-content:center;width:50px;height:50px;border-radius:50%;background:#12121f;font-size:1.4rem;transition:all .3s;border:1px solid rgba(0,255,170,.06);color:#aaa}
+.social-links a:hover{background:#00ffaa;color:#0a0a12;transform:translateY(-4px);box-shadow:0 0 30px rgba(0,255,170,.25)}
+.social-links a.soon{opacity:.35;cursor:not-allowed}
+.social-links a.soon:hover{background:#12121f;color:#aaa;transform:none;box-shadow:none}
+footer{text-align:center;padding:2.5rem 0;border-top:1px solid rgba(0,255,170,.06);color:#666;font-size:.9rem;transition:border-color .3s,color .3s}
+footer i{color:#00ffaa}
+footer .highlight{color:#00ffaa}
+.footer-terminal{margin-top:.8rem;font-family:'Courier New',monospace;font-size:.8rem;color:#444}
+.footer-contact{margin-top:.8rem;font-size:.85rem}
+.whatsapp-float{position:fixed;bottom:24px;right:24px;width:56px;height:56px;background:#25D366;color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:30px;box-shadow:0 4px 20px rgba(37,211,102,.4);z-index:99;transition:transform .3s,box-shadow .3s;text-decoration:none}
+.whatsapp-float:hover{transform:scale(1.1);box-shadow:0 6px 30px rgba(37,211,102,.6)}
+@media(max-width:900px){
+.hero{padding:100px 0 60px}
+.hero-content h1{font-size:2.4rem}
+.hero-content .tagline{font-size:1rem}
+.terminal-bio{font-size:.78rem;padding:.9rem 1rem;line-height:1.6}
+.terminal-bio .output{padding-left:1rem;white-space:normal;word-break:break-word}
+.avatar-wrapper{width:160px;height:160px}
+.avatar{font-size:3.2rem}
+.section-title::after{left:50%;transform:translateX(-50%)}
+.section-title{display:block;text-align:center}
+.section-sub{text-align:center}
+.contact-info{justify-content:center}
+.social-links{justify-content:center}
+}
+@media(max-width:650px){
+.nav-links{display:none;flex-direction:column;gap:.8rem;background:#12121f;padding:1.5rem;border-radius:16px;position:absolute;top:70px;right:1rem;width:220px;border:1px solid rgba(0,255,170,.08)}
+.nav-links.active{display:flex}
+.hamburger{display:block}
+.theme-toggle{padding:.3rem .7rem;font-size:.75rem;margin-left:0}
+.hero-content h1{font-size:2rem}
+.hero-content .tagline{font-size:.95rem}
+.terminal-bio{font-size:.7rem;padding:.8rem}
+.terminal-bio .output{padding-left:.7rem}
+.status-badge{font-size:.65rem;padding:.2rem .8rem}
+.container{padding:0 1.2rem}
+.btn{padding:.7rem 1.6rem;font-size:.9rem}
+.whatsapp-float{width:50px;height:50px;font-size:26px;bottom:16px;right:16px}
+}
+[data-theme=light] body{background:#f4f6fb;color:#1a1f36}
+[data-theme=light] nav{background:rgba(244,246,251,.92);border-bottom-color:rgba(0,150,110,.25)}
+[data-theme=light] .logo{background:linear-gradient(135deg,#009966,#007a52,#009966);-webkit-background-clip:text;background-clip:text}
+[data-theme=light] .logo span{color:#009966;-webkit-text-fill-color:#009966}
+[data-theme=light] .nav-links a{color:#4a5568}
+[data-theme=light] .nav-links a:hover{color:#009966}
+[data-theme=light] .nav-links a::after{background:#009966;box-shadow:0 0 10px rgba(0,150,110,.4)}
+[data-theme=light] .status-badge{background:rgba(0,150,110,.12);border-color:#009966;color:#009966}
+[data-theme=light] .status-badge .dot{background:#009966}
+[data-theme=light] .hamburger{color:#1a1f36}
+[data-theme=light] .theme-toggle{background:#fff;border-color:rgba(0,150,110,.25);color:#4a5568}
+[data-theme=light] .theme-toggle:hover{border-color:#009966;color:#009966}
+[data-theme=light] .hero-content h1 span{background:linear-gradient(135deg,#009966,#007a52);-webkit-background-clip:text;background-clip:text}
+[data-theme=light] .hero-content .tagline{color:#009966;text-shadow:0 0 20px rgba(0,150,110,.15)}
+[data-theme=light] .terminal-bio{background:#fff;border-color:rgba(0,150,110,.25);box-shadow:0 0 40px rgba(0,150,110,.05)}
+[data-theme=light] .terminal-bio:hover{border-color:rgba(0,150,110,.5)}
+[data-theme=light] .terminal-bio .prompt,[data-theme=light] .terminal-bio .green{color:#009966}
+[data-theme=light] .terminal-bio .output{color:#4a5568}
+[data-theme=light] .terminal-bio .highlight-text{color:#1a1f36}
+[data-theme=light] .btn-primary{background:linear-gradient(135deg,#009966,#007a52);color:#fff;border-color:#009966;box-shadow:0 0 25px rgba(0,150,110,.25)}
+[data-theme=light] .btn-primary:hover{box-shadow:0 10px 35px rgba(0,150,110,.35)}
+[data-theme=light] .btn-outline{border-color:#009966;color:#009966}
+[data-theme=light] .btn-outline:hover{background:#009966;color:#fff}
+[data-theme=light] .avatar{background:#f4f6fb;color:#009966}
+[data-theme=light] section{background:#fff!important}
+[data-theme=light] section:nth-of-type(even){background:#eef0f7!important}
+[data-theme=light] .section-title::after{background:linear-gradient(135deg,#009966,#007a52);box-shadow:0 0 20px rgba(0,150,110,.3)}
+[data-theme=light] .section-sub{color:#4a5568}
+[data-theme=light] .skill-card{background:#f4f6fb;border-color:rgba(0,150,110,.15)}
+[data-theme=light] .skill-card:hover{border-color:#009966;box-shadow:0 0 30px rgba(0,150,110,.08)}
+[data-theme=light] .skill-card i{color:#009966}
+[data-theme=light] .skill-card span{color:#1a1f36}
+[data-theme=light] .skill-card.teaching{border-color:rgba(2,136,209,.25);background:linear-gradient(135deg,rgba(2,136,209,.06),transparent)}
+[data-theme=light] .skill-card.teaching i{color:#0288d1}
+[data-theme=light] .skill-card.hardware{border-color:rgba(25,118,210,.25);background:linear-gradient(135deg,rgba(25,118,210,.06),transparent)}
+[data-theme=light] .skill-card.hardware i{color:#1976d2}
+[data-theme=light] .project-card{background:#f4f6fb;border-color:rgba(0,150,110,.12)}
+[data-theme=light] .project-card:hover{border-color:#009966;box-shadow:0 0 40px rgba(0,150,110,.08)}
+[data-theme=light] .project-card i{color:#009966}
+[data-theme=light] .project-card h3{color:#1a1f36}
+[data-theme=light] .project-card p{color:#4a5568}
+[data-theme=light] .project-tag{background:rgba(0,150,110,.12);color:#009966;border-color:rgba(0,150,110,.25)}
+[data-theme=light] .project-link{background:#009966;color:#fff;border-color:#009966}
+[data-theme=light] .project-link:hover{background:#007a52}
+[data-theme=light] .project-card.coming-soon i{color:#a0aec0}
+[data-theme=light] .blog-card{background:#f4f6fb;border-color:rgba(0,150,110,.12)}
+[data-theme=light] .blog-card:hover{border-color:#009966}
+[data-theme=light] .blog-card .blog-date{color:#718096}
+[data-theme=light] .blog-card h4{color:#1a1f36}
+[data-theme=light] .blog-card p{color:#4a5568}
+[data-theme=light] .blog-card .read-more{color:#718096}
+[data-theme=light] .contact-item{background:#f4f6fb;border-color:rgba(0,150,110,.12)}
+[data-theme=light] .contact-item:hover{border-color:#009966}
+[data-theme=light] .contact-item i{color:#009966}
+[data-theme=light] .contact-item a{color:#1a1f36}
+[data-theme=light] .contact-item a:hover{color:#009966}
+[data-theme=light] .social-links a{background:#f4f6fb;border-color:rgba(0,150,110,.12);color:#4a5568}
+[data-theme=light] .social-links a:hover{background:#009966;color:#fff;box-shadow:0 0 30px rgba(0,150,110,.3)}
+[data-theme=light] footer{border-top-color:rgba(0,150,110,.12);color:#718096}
+[data-theme=light] footer i,[data-theme=light] footer .highlight{color:#009966}
+[data-theme=light] .footer-terminal{color:#a0aec0}
+</style>
+</head>
+<body>
+<nav>
+<div class="container">
+<div class="logo">&lt;G<span>O</span>/&gt;</div>
+<ul class="nav-links" id="navLinks">
+<li><a href="#hero">Home</a></li>
+<li><a href="#skills">Skills</a></li>
+<li><a href="#projects">Projects</a></li>
+<li><a href="#blog">Blog</a></li>
+<li><a href="#contact">Contact</a></li>
+<li><span class="status-badge"><span class="dot"></span> Open to Collab</span></li>
+<li><button class="theme-toggle" id="themeToggle" type="button" aria-label="Toggle theme"><i class="fas fa-sun"></i> <span id="themeLabel">Light</span></button></li>
+</ul>
+<div class="hamburger" id="hamburger"><i class="fas fa-bars"></i></div>
+</div>
+</nav>
+<section class="hero" id="hero">
+<div class="container">
+<div class="hero-content">
+<h1>Gerald <span>Owusu</span></h1>
+<div class="tagline"><i class="fas fa-terminal"></i> Educator &amp; IT Professional</div>
+<div class="terminal-bio">
+<div class="line"><span class="prompt">$</span> whoami</div>
+<div class="line"><span class="output">gerald@kernel-dev <span class="highlight-text">• Educator • Hardware &amp; Software • Kernel Builder • IT Consultant</span></span></div>
+<div class="line" style="margin-top:6px"><span class="prompt">$</span> cat ~/skills.txt</div>
+<div class="line"><span class="output"><span class="green">▸</span> Classroom Teaching (short-term placements)</span></div>
+<div class="line"><span class="output"><span class="green">▸</span> Peer Tutoring &amp; Study Support</span></div>
+<div class="line"><span class="output"><span class="green">▸</span> Educational Technology (EdTech)</span></div>
+<div class="line"><span class="output"><span class="green">▸</span> Android Kernel &amp; AOSP</span></div>
+<div class="line"><span class="output"><span class="green">▸</span> Custom ROM Porting (Redmi / Xiaomi)</span></div>
+<div class="line"><span class="output"><span class="green">▸</span> Web Apps &amp; Progressive Web Apps</span></div>
+<div class="line"><span class="output"><span class="green">▸</span> Cloud Systems (Firebase, Firestore)</span></div>
+<div class="line"><span class="output"><span class="green">▸</span> Windows Programs (.NET/C#)</span></div>
+<div class="line"><span class="output"><span class="green">▸</span> Bash Scripting &amp; Automation</span></div>
+<div class="line"><span class="output"><span class="green">▸</span> VPS / VPN Solutions (WireGuard, OpenVPN)</span></div>
+<div class="line"><span class="output"><span class="green">▸</span> <span style="color:#4facfe">Laptop &amp; Mobile Hardware Repair (Component-Level)</span></span></div>
+<div class="line" style="margin-top:6px"><span class="prompt">$</span> uptime</div>
+<div class="line"><span class="output">Educating, building, and deploying since 2010 🔥</span></div>
+</div>
+<div class="btn-group">
+<a href="#projects" class="btn btn-primary">Explore My Work</a>
+<a href="#contact" class="btn btn-outline">Connect</a>
+<a href="#" class="btn btn-resume" onclick="return false"><i class="fas fa-file-pdf"></i> Resume (soon)</a>
+</div>
+</div>
+<div class="hero-image">
+<div class="avatar-wrapper">
+<div class="avatar"><i class="fas fa-microchip"></i></div>
+</div>
+</div>
+</div>
+</section>
+<section id="skills" style="background:#0d0d18">
+<div class="container">
+<h2 class="section-title">Arsenal &amp; Tools</h2>
+<p class="section-sub">The tech stack I command</p>
+<div class="skills-grid">
+<div class="skill-card teaching"><i class="fas fa-chalkboard-teacher"></i><span>Teaching / EdTech</span></div>
+<div class="skill-card"><i class="fas fa-graduation-cap"></i><span>Classroom Mgmt</span></div>
+<div class="skill-card"><i class="fab fa-android"></i><span>Android Kernel</span></div>
+<div class="skill-card"><i class="fas fa-microchip"></i><span>C/C++</span></div>
+<div class="skill-card"><i class="fas fa-code"></i><span>JavaScript</span></div>
+<div class="skill-card"><i class="fas fa-terminal"></i><span>Bash Scripting</span></div>
+<div class="skill-card"><i class="fab fa-windows"></i><span>.NET / C#</span></div>
+<div class="skill-card"><i class="fas fa-cloud"></i><span>VPS / Hosting</span></div>
+<div class="skill-card"><i class="fas fa-shield-alt"></i><span>VPN / Networking</span></div>
+<div class="skill-card hardware"><i class="fas fa-tools"></i><span>Hardware Repair</span></div>
+</div>
+</div>
+</section>
+<section id="projects">
+<div class="container">
+<h2 class="section-title">Flagship Projects</h2>
+<p class="section-sub">Education, health, and systems projects</p>
+<div class="projects-grid">
+<div class="project-card">
+<i class="fas fa-clinic-medical"></i>
+<h3>Facility Stores</h3>
+<p>Live inventory management app deployed at Adjiringanor Health Center. Tracks 290+ items across 5 departments with real-time alerts, cloud sync, and Excel import.</p>
+<span class="project-tag">Inventory · Cloud Sync</span>
+<a href="https://geraldsays.github.io/facility-stores" target="_blank" class="project-link">Live Demo →</a>
+</div>
+<div class="project-card">
+<i class="fas fa-chalkboard-teacher"></i>
+<h3>Class 5A Classroom Manager</h3>
+<p>Cloud-based classroom management system for primary school teachers — live roster, daily attendance with one-tap "mark all present", grade tracking, and categorized student notes. Includes a read-only parent portal.</p>
+<span class="project-tag">JavaScript · EdTech</span>
+<a href="https://geraldsays.github.io/thecms" target="_blank" class="project-link">Teacher App →</a>
+<a href="https://geraldsays.github.io/parents" target="_blank" class="project-link" style="margin-left:6px;background:#0099ff">Parent View →</a>
+</div>
+<div class="project-card">
+<i class="fas fa-rocket"></i>
+<h3>Custom Android Kernel</h3>
+<p>Kernel builds for ARM64/Qualcomm platforms (Snapdragon 680 / Redmi Note 11). Custom modules for WiFi crypto, RMNET, and TCP congestion control.</p>
+<span class="project-tag">C · AOSP · arm64</span>
+</div>
+<div class="project-card coming-soon">
+<i class="fas fa-satellite"></i>
+<h3>StealthVPN <small style="color:#666;font-size:.7rem">(coming soon)</small></h3>
+<p>Self-hosted VPN solution with WireGuard, obfuscation, and multi-hop routing — currently in development.</p>
+<span class="project-tag">Bash · WireGuard · VPS</span>
+</div>
+<div class="project-card coming-soon">
+<i class="fas fa-robot"></i>
+<h3>SysMon Daemon <small style="color:#666;font-size:.7rem">(coming soon)</small></h3>
+<p>Lightweight Windows system monitor with real-time resource tracking and alerting — in development.</p>
+<span class="project-tag">C# · .NET · WPF</span>
+</div>
+</div>
+</div>
+</section>
+<section id="blog" style="background:#0d0d18">
+<div class="container">
+<h2 class="section-title">Tech Blog</h2>
+<p class="section-sub">Thoughts, tutorials, and deep dives</p>
+<div class="blog-grid">
+<div class="blog-card coming-soon">
+<div class="blog-date">Coming soon</div>
+<h4>Building a Custom Kernel for Redmi</h4>
+<p>Step-by-step guide to compiling and optimizing AOSP for Xiaomi devices.</p>
+<span class="read-more">Coming soon</span>
+</div>
+<div class="blog-card coming-soon">
+<div class="blog-date">Coming soon</div>
+<h4>From Health Center to Code</h4>
+<p>How a health facility inventory system got built from scratch.</p>
+<span class="read-more">Coming soon</span>
+</div>
+<div class="blog-card coming-soon">
+<div class="blog-date">Coming soon</div>
+<h4>Laptop Motherboard Repair 101</h4>
+<p>Diagnosing and fixing component-level failures on modern laptops.</p>
+<span class="read-more">Coming soon</span>
+</div>
+</div>
+</div>
+</section>
+<section id="contact">
+<div class="container">
+<h2 class="section-title">Reach Out</h2>
+<p class="section-sub">Let's build something legendary</p>
+<div class="contact-info">
+<div class="contact-item">
+<i class="fas fa-envelope"></i>
+<a href="mailto:Geraldsays@gmail.com">Geraldsays@gmail.com</a>
+</div>
+<div class="contact-item">
+<i class="fas fa-phone"></i>
+<a href="tel:+233549956653">Call: 0549 956 653</a>
+</div>
+<div class="contact-item">
+<i class="fab fa-whatsapp"></i>
+<a href="https://wa.me/233556181986?text=Hello%20Gerald%2C%20I%20found%20your%20portfolio%20and%20would%20like%20to%20connect." target="_blank">WhatsApp: 0556 181 986</a>
+</div>
+<div class="contact-item">
+<i class="fab fa-github"></i>
+<a href="https://geraldsays.github.io" target="_blank">geraldsays.github.io</a>
+</div>
+<div class="contact-item">
+<i class="fas fa-briefcase"></i>
+<span>Available for collabs &amp; consulting</span>
+</div>
+</div>
+<div class="social-links">
+<a href="https://geraldsays.github.io" target="_blank"><i class="fab fa-github"></i></a>
+<a href="https://wa.me/233556181986" target="_blank" title="WhatsApp Business"><i class="fab fa-whatsapp"></i></a>
+<a href="#" class="soon" title="Coming soon" onclick="return false"><i class="fab fa-linkedin-in"></i></a>
+<a href="#" class="soon" title="Coming soon" onclick="return false"><i class="fab fa-twitter"></i></a>
+<a href="#" class="soon" title="Coming soon" onclick="return false"><i class="fab fa-youtube"></i></a>
+</div>
+</div>
+</section>
+<footer>
+<div class="container">
+<p>Built with <i class="fas fa-heart"></i> by <span class="highlight">Gerald Owusu</span> &bull; 2026</p>
+<p class="footer-contact">
+<i class="fas fa-phone" style="color:#00ffaa"></i>
+<a href="tel:+233549956653" style="color:#00ffaa">0549 956 653</a>
+&nbsp;·&nbsp;
+<i class="fab fa-whatsapp" style="color:#25D366"></i>
+<a href="https://wa.me/233556181986" target="_blank" style="color:#25D366">WhatsApp Business: 0556 181 986</a>
+</p>
+<div class="footer-terminal">
+<span style="color:#00ffaa">$</span> echo "sudo rm -rf /problems" <span style="color:#555"># living the dream</span>
+</div>
+</div>
+</footer>
+<a href="https://wa.me/233556181986?text=Hello%20Gerald%2C%20I%20found%20your%20portfolio%20and%20would%20like%20to%20connect." class="whatsapp-float" target="_blank" aria-label="Chat on WhatsApp Business">
+<i class="fab fa-whatsapp"></i>
+</a>
+<script>
+!function(){const e="gerald-portfolio-theme",t=document.getElementById("themeToggle"),o=document.getElementById("themeLabel"),n=t.querySelector("i");function l(l){"light"===l?(document.documentElement.setAttribute("data-theme","light"),o.textContent="Dark",n.className="fas fa-moon"):(document.documentElement.removeAttribute("data-theme"),o.textContent="Light",n.className="fas fa-sun");try{localStorage.setItem(e,l)}catch(e){}}let s=localStorage.getItem(e);s||(s=window.matchMedia("(prefers-color-scheme: light)").matches?"light":"dark"),l(s),t.addEventListener("click",(function(){l("light"===document.documentElement.getAttribute("data-theme")?"dark":"light")}))}(),function(){const e=document.getElementById("hamburger"),t=document.getElementById("navLinks");e.addEventListener("click",(function(){t.classList.toggle("active")})),document.querySelectorAll(".nav-links a").forEach((function(e){e.addEventListener("click",(function(){t.classList.remove("active")}))}))}(),function(){document.querySelectorAll('a[href^="#"]').forEach((function(e){e.addEventListener("click",(function(e){const t=this.getAttribute("href");if(!t||"#"===t)return;const o=document.querySelector(t);o&&(e.preventDefault(),o.scrollIntoView({behavior:"smooth",block:"start"}))}))}))}();
+</script>
+<!-- Protected by Geraldsays -->
+<script>try{console.log("%c Protected by Geraldsays ","background:#00c896;color:#00110d;padding:4px 8px;border-radius:6px;font-weight:700");var _wm=document.createElement("div");_wm.style.display="none";_wm.dataset.wm="Protected by Geraldsays";document.documentElement.appendChild(_wm)}catch(e){}</script>
+</body>
+</html>
