@@ -1,414 +1,2220 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!--
-  Gerald Owusu Portfolio
-  Copyright (c) 2026 Gerald Owusu. All rights reserved.
-  Unauthorized reproduction or distribution of this file, via any medium,
-  is strictly prohibited without written permission.
-  Contact: Geraldsays@gmail.com
--->
-<meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-<meta name="description" content="Gerald Owusu — educator, IT professional, Android kernel developer, and health informatics practitioner based in Ghana."/>
-<meta name="author" content="Gerald Owusu"/>
-<meta name="copyright" content="Copyright (c) 2026 Gerald Owusu. All rights reserved."/>
-<title>Gerald Owusu | Educator &amp; IT Professional</title>
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css"/>
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💻</text></svg>"/>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Class 5A — Classroom Manager (Sync)</title>
+
+<!-- Firebase SDKs (compat style — plain script tags, no build step).
+     crossorigin="anonymous" is important here: without it, browsers
+     collapse any error thrown inside these externally-hosted scripts
+     down to a generic, un-debuggable "Script error." with no real
+     message or location — which is exactly what was hiding the
+     actual bug until now. -->
+<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js" crossorigin="anonymous"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore-compat.js" crossorigin="anonymous"></script>
+
+
+
+<!-- TEMPORARY DIAGNOSTIC: shows any JS error directly on screen,
+     so it can be read on a phone with no computer attached.
+     Safe to remove once the current issue is found. -->
+<script>
+  // Queues messages if document.body doesn't exist yet (this script
+  // runs in <head>, before <body> is parsed — an error firing this
+  // early would otherwise throw INSIDE the error handler itself
+  // trying to append to a null body, which can silently stop the
+  // whole page from rendering further. That was a real bug here.
+  var diagnosticQueue = [];
+  function showDiagnostic(text) {
+    diagnosticQueue.push(text);
+    flushDiagnosticQueue();
+  }
+  function flushDiagnosticQueue() {
+    if (!document.body || diagnosticQueue.length === 0) return;
+    var box = document.getElementById("errorDiagnosticBox");
+    if (!box) {
+      box = document.createElement("div");
+      box.id = "errorDiagnosticBox";
+      box.style.cssText = "position:fixed;bottom:0;left:0;right:0;background:#2b0000;color:#ff8080;font-family:monospace;font-size:12px;padding:12px;z-index:99999;max-height:40vh;overflow:auto;white-space:pre-wrap;border-top:2px solid #ff4757;";
+      document.body.appendChild(box);
+    }
+    while (diagnosticQueue.length) {
+      box.textContent += diagnosticQueue.shift() + "\n\n";
+    }
+  }
+  document.addEventListener("DOMContentLoaded", flushDiagnosticQueue);
+  window.addEventListener("error", function (e) {
+    var detail = e.error && e.error.stack ? e.error.stack : e.message;
+    showDiagnostic("ERROR: " + detail + "\n  at " + (e.filename || "?") + ":" + e.lineno + ":" + e.colno);
+  });
+  // Catches failures inside async/await code that nothing .catch()'d —
+  // a common silent-failure source, distinct from the synchronous
+  // errors "error" above catches.
+  window.addEventListener("unhandledrejection", function (e) {
+    var reason = e.reason;
+    var detail = reason && reason.stack ? reason.stack : (reason && reason.message) ? reason.message : String(reason);
+    showDiagnostic("UNHANDLED PROMISE REJECTION: " + detail);
+  });
+</script>
+
 <style>
-*{margin:0;padding:0;box-sizing:border-box}
-body{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background:#0a0a12;color:#eaeaea;line-height:1.6;scroll-behavior:smooth;transition:background .3s,color .3s}
-a{text-decoration:none;color:inherit}
-.container{max-width:1100px;margin:0 auto;padding:0 2rem}
-::-webkit-scrollbar{width:8px}
-::-webkit-scrollbar-track{background:#0a0a12}
-::-webkit-scrollbar-thumb{background:#00ffaa;border-radius:10px}
-::-webkit-scrollbar-thumb:hover{background:#00cc88}
-nav{position:fixed;top:0;left:0;width:100%;background:rgba(10,10,18,.92);backdrop-filter:blur(10px);z-index:100;padding:.8rem 0;border-bottom:1px solid rgba(0,255,170,.15);transition:background .3s,border-color .3s}
-nav .container{display:flex;justify-content:space-between;align-items:center}
-.logo{font-size:1.6rem;font-weight:700;background:linear-gradient(135deg,#00ffaa,#00cc88,#00ffaa);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;letter-spacing:-.5px}
-.logo span{color:#00ffaa;-webkit-text-fill-color:#00ffaa}
-.nav-links{display:flex;gap:2rem;list-style:none;align-items:center}
-.nav-links a{font-weight:500;transition:color .3s;font-size:1rem;position:relative;color:#aaa}
-.nav-links a::after{content:'';position:absolute;bottom:-4px;left:0;width:0;height:2px;background:#00ffaa;transition:width .3s;box-shadow:0 0 10px #00ffaa}
-.nav-links a:hover{color:#00ffaa}
-.nav-links a:hover::after{width:100%}
-.status-badge{background:rgba(0,255,170,.12);border:1px solid #00ffaa;color:#00ffaa;padding:.3rem 1rem;border-radius:50px;font-size:.75rem;font-weight:600;display:inline-flex;align-items:center;gap:6px;animation:pulseBadge 2s ease-in-out infinite}
-.status-badge .dot{width:8px;height:8px;background:#00ffaa;border-radius:50%;display:inline-block;animation:blink 1.5s ease-in-out infinite}
-@keyframes blink{0%,100%{opacity:1}50%{opacity:.2}}
-@keyframes pulseBadge{0%,100%{box-shadow:0 0 10px rgba(0,255,170,.1)}50%{box-shadow:0 0 25px rgba(0,255,170,.2)}}
-.hamburger{display:none;font-size:1.8rem;cursor:pointer;color:#eaeaea}
-.theme-toggle{background:#12121f;border:1px solid rgba(0,255,170,.15);border-radius:50px;padding:.4rem .9rem;font-size:.85rem;color:#aaa;cursor:pointer;font-family:inherit;transition:all .3s;display:inline-flex;align-items:center;gap:6px;margin-left:.8rem}
-.theme-toggle:hover{border-color:#00ffaa;color:#00ffaa}
-.hero{min-height:auto;padding:120px 0 80px;position:relative;overflow:hidden}
-.hero::before{content:'';position:absolute;width:600px;height:600px;background:radial-gradient(circle,rgba(0,255,170,.06),transparent 70%);top:-200px;right:-200px;border-radius:50%;animation:pulseGlow 8s ease-in-out infinite}
-.hero::after{content:'';position:absolute;width:400px;height:400px;background:radial-gradient(circle,rgba(0,200,255,.05),transparent 70%);bottom:-100px;left:-100px;border-radius:50%;animation:pulseGlow 10s ease-in-out infinite reverse}
-@keyframes pulseGlow{0%,100%{transform:scale(1);opacity:.6}50%{transform:scale(1.2);opacity:1}}
-.hero .container{display:flex;flex-direction:column;align-items:center;text-align:center;gap:0;position:relative;z-index:1}
-.hero-content{width:100%;max-width:900px;margin:0 auto}
-.hero-content h1{font-size:3.2rem;font-weight:700;margin-bottom:.3rem}
-.hero-content h1 span{background:linear-gradient(135deg,#00ffaa,#00cc88);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
-.hero-content .tagline{font-size:1.2rem;color:#00ffaa;margin-bottom:1.5rem;font-weight:400;text-shadow:0 0 20px rgba(0,255,170,.2);letter-spacing:.5px}
-.hero-content .tagline i{margin-right:8px}
-.terminal-bio{background:#0a0a12;border:1px solid rgba(0,255,170,.15);border-radius:12px;padding:1.4rem 1.6rem;font-family:'Courier New',monospace;margin:0 auto 2rem;width:100%;box-shadow:0 0 40px rgba(0,255,170,.03);transition:border-color .3s,background .3s;text-align:left}
-.terminal-bio:hover{border-color:rgba(0,255,170,.3)}
-.terminal-bio .line{padding:.15rem 0}
-.terminal-bio .prompt{color:#00ffaa}
-.terminal-bio .output{color:#aaa;padding-left:1.5rem}
-.terminal-bio .highlight-text{color:#fff}
-.terminal-bio .green{color:#00ffaa}
-.btn-group{display:flex;gap:1rem;flex-wrap:wrap;justify-content:center;margin-bottom:2.5rem}
-.btn{display:inline-block;padding:.8rem 2.2rem;border-radius:50px;font-weight:600;transition:all .3s;border:2px solid transparent;cursor:pointer;font-size:1rem}
-.btn-primary{background:linear-gradient(135deg,#00ffaa,#00cc88);color:#0a0a12;border-color:#00ffaa;box-shadow:0 0 25px rgba(0,255,170,.25)}
-.btn-primary:hover{transform:translateY(-3px);box-shadow:0 10px 35px rgba(0,255,170,.4)}
-.btn-outline{border-color:#00ffaa;color:#00ffaa;background:transparent}
-.btn-outline:hover{background:#00ffaa;color:#0a0a12;transform:translateY(-3px);box-shadow:0 10px 30px rgba(0,255,170,.2)}
-.btn-resume{background:transparent;border-color:#4facfe;color:#4facfe;opacity:.6;cursor:not-allowed}
-.btn-resume:hover{transform:none}
-.hero-image{display:flex;justify-content:center;align-items:center;margin-top:.5rem}
-.avatar-wrapper{width:220px;height:220px;border-radius:50%;background:linear-gradient(135deg,#00ffaa,#00cc88,#00ffaa);padding:5px;animation:float 5s ease-in-out infinite;box-shadow:0 0 60px rgba(0,255,170,.15)}
-.avatar{width:100%;height:100%;border-radius:50%;background:#0a0a12;display:flex;align-items:center;justify-content:center;font-size:4.5rem;color:#00ffaa;transition:background .3s}
-@keyframes float{0%,100%{transform:translateY(0) rotate(0)}50%{transform:translateY(-18px) rotate(2deg)}}
-section{padding:5rem 0;transition:background .3s}
-.section-title{font-size:2.4rem;font-weight:700;margin-bottom:1rem;position:relative;display:inline-block}
-.section-title::after{content:'';position:absolute;left:0;bottom:-6px;width:60px;height:4px;background:linear-gradient(135deg,#00ffaa,#00cc88);border-radius:4px;box-shadow:0 0 20px rgba(0,255,170,.3)}
-.section-sub{color:#aaa;margin-bottom:3rem;font-size:1.1rem}
-.skills-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:1.8rem;margin-top:1rem}
-.skill-card{background:#12121f;padding:1.8rem 1rem;border-radius:16px;text-align:center;transition:transform .3s,box-shadow .3s,border-color .3s,background .3s;border:1px solid rgba(0,255,170,.08)}
-.skill-card:hover{transform:translateY(-8px);border-color:#00ffaa;box-shadow:0 0 30px rgba(0,255,170,.05)}
-.skill-card i{font-size:2.8rem;color:#00ffaa;margin-bottom:.6rem}
-.skill-card span{display:block;font-weight:500;color:#ddd}
-.skill-card.teaching{border-color:rgba(0,200,255,.2);background:linear-gradient(135deg,rgba(0,200,255,.05),transparent)}
-.skill-card.teaching i{color:#00c8ff}
-.skill-card.teaching:hover{border-color:#00c8ff}
-.skill-card.hardware{border-color:rgba(79,172,254,.2);background:linear-gradient(135deg,rgba(79,172,254,.05),transparent)}
-.skill-card.hardware i{color:#4facfe}
-.skill-card.hardware:hover{border-color:#4facfe}
-.projects-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:2rem}
-.project-card{background:#12121f;padding:2rem 1.5rem;border-radius:20px;border:1px solid rgba(0,255,170,.06);transition:transform .3s,border-color .3s,box-shadow .3s,background .3s;position:relative;overflow:hidden}
-.project-card::before{content:'';position:absolute;top:0;left:0;width:100%;height:3px;background:linear-gradient(90deg,#00ffaa,#00cc88);opacity:0;transition:opacity .3s}
-.project-card:hover::before{opacity:1}
-.project-card:hover{transform:translateY(-6px);border-color:#00ffaa;box-shadow:0 0 40px rgba(0,255,170,.04)}
-.project-card i{font-size:2.5rem;color:#00ffaa;margin-bottom:1rem}
-.project-card h3{margin-bottom:.5rem;color:#fff}
-.project-card p{color:#bbb;font-size:.95rem}
-.project-tag{display:inline-block;margin-top:1rem;padding:.25rem 1rem;border-radius:30px;background:rgba(0,255,170,.12);color:#00ffaa;font-size:.75rem;font-weight:600;border:1px solid rgba(0,255,170,.15)}
-.project-link{display:inline-block;margin-top:1rem;margin-left:.5rem;padding:.25rem 1rem;border-radius:30px;background:#00ffaa;color:#0a0a12;font-size:.75rem;font-weight:700;border:1px solid #00ffaa;transition:all .3s}
-.project-link:hover{background:#00cc88;transform:translateY(-2px)}
-.project-card.coming-soon{opacity:.55}
-.project-card.coming-soon i{color:#666}
-.blog-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:2rem}
-.blog-card{background:#12121f;padding:1.8rem 1.5rem;border-radius:16px;border:1px solid rgba(0,255,170,.06);transition:all .3s}
-.blog-card:hover{border-color:#00ffaa;transform:translateY(-4px)}
-.blog-card .blog-date{color:#666;font-size:.8rem}
-.blog-card h4{margin:.5rem 0;color:#fff}
-.blog-card p{color:#999;font-size:.9rem}
-.blog-card .read-more{color:#666;font-size:.85rem;font-weight:600;display:inline-block;margin-top:.8rem;cursor:not-allowed}
-.blog-card.coming-soon{opacity:.55}
-.contact-info{display:flex;flex-wrap:wrap;gap:2rem;margin-top:1.5rem}
-.contact-item{display:flex;align-items:center;gap:.8rem;background:#12121f;padding:.8rem 1.8rem;border-radius:60px;border:1px solid rgba(0,255,170,.06);transition:border-color .3s,box-shadow .3s,background .3s}
-.contact-item:hover{border-color:#00ffaa;box-shadow:0 0 25px rgba(0,255,170,.05)}
-.contact-item i{font-size:1.4rem;color:#00ffaa}
-.contact-item a{color:#ddd;transition:color .3s}
-.contact-item a:hover{color:#00ffaa}
-.social-links{display:flex;gap:1.2rem;margin-top:2rem}
-.social-links a{display:inline-flex;align-items:center;justify-content:center;width:50px;height:50px;border-radius:50%;background:#12121f;font-size:1.4rem;transition:all .3s;border:1px solid rgba(0,255,170,.06);color:#aaa}
-.social-links a:hover{background:#00ffaa;color:#0a0a12;transform:translateY(-4px);box-shadow:0 0 30px rgba(0,255,170,.25)}
-.social-links a.soon{opacity:.35;cursor:not-allowed}
-.social-links a.soon:hover{background:#12121f;color:#aaa;transform:none;box-shadow:none}
-footer{text-align:center;padding:2.5rem 0;border-top:1px solid rgba(0,255,170,.06);color:#666;font-size:.9rem;transition:border-color .3s,color .3s}
-footer i{color:#00ffaa}
-footer .highlight{color:#00ffaa}
-.footer-terminal{margin-top:.8rem;font-family:'Courier New',monospace;font-size:.8rem;color:#444}
-.footer-contact{margin-top:.8rem;font-size:.85rem}
-.whatsapp-float{position:fixed;bottom:24px;right:24px;width:56px;height:56px;background:#25D366;color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:30px;box-shadow:0 4px 20px rgba(37,211,102,.4);z-index:99;transition:transform .3s,box-shadow .3s;text-decoration:none}
-.whatsapp-float:hover{transform:scale(1.1);box-shadow:0 6px 30px rgba(37,211,102,.6)}
-@media(max-width:900px){
-.hero{padding:100px 0 60px}
-.hero-content h1{font-size:2.4rem}
-.hero-content .tagline{font-size:1rem}
-.terminal-bio{font-size:.78rem;padding:.9rem 1rem;line-height:1.6}
-.terminal-bio .output{padding-left:1rem;white-space:normal;word-break:break-word}
-.avatar-wrapper{width:160px;height:160px}
-.avatar{font-size:3.2rem}
-.section-title::after{left:50%;transform:translateX(-50%)}
-.section-title{display:block;text-align:center}
-.section-sub{text-align:center}
-.contact-info{justify-content:center}
-.social-links{justify-content:center}
+:root{--bg:#0f1117;--surface:#181c27;--surface2:#1e2335;--border:#2a3050;--accent:#00c896;--accent2:#0099ff;--warn:#ffb300;--danger:#ff4757;--text:#e8eaf0;--text2:#8892b0;--text3:#4a5568;--mono:"Courier New",monospace;--sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;}
+[data-theme="light"]{--bg:#f4f6fb;--surface:#ffffff;--surface2:#eef0f7;--border:#d0d7e8;--text:#1a1f36;--text2:#4a5568;--text3:#9aa5b8;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14px;min-height:100vh;transition:background .2s,color .2s;}
+
+/* PIN screen (cloud version — see auth note in the script below) */
+#login-screen{position:fixed;inset:0;background:var(--bg);z-index:9998;display:flex;align-items:center;justify-content:center;}
+.login-box{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:40px;text-align:center;width:340px;}
+.login-title{font-size:20px;font-weight:600;margin-bottom:6px;}
+.login-sub{font-size:12px;color:var(--text2);margin-bottom:20px;line-height:1.5;}
+.pin-dots{display:flex;gap:12px;justify-content:center;margin-bottom:20px;}
+.pin-dot{width:14px;height:14px;border-radius:50%;border:2px solid var(--border);transition:all .15s;}
+.pin-dot.filled{background:var(--accent);border-color:var(--accent);}
+.pin-pad{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;}
+.pin-key{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:16px;font-size:18px;font-family:var(--mono);font-weight:600;cursor:pointer;color:var(--text);}
+.pin-key:hover{border-color:var(--accent);}
+.pin-key.del{color:var(--danger);font-size:14px;}
+.login-err{color:var(--danger);font-size:12px;margin-top:10px;text-align:center;min-height:16px;}
+.login-note{font-size:11px;color:var(--text2);margin-top:14px;padding:10px;background:var(--surface2);border-radius:6px;line-height:1.5;text-align:left;}
+.risk-note{font-size:11px;color:var(--warn);margin-top:10px;padding:10px;background:rgba(255,179,0,.08);border:1px solid rgba(255,179,0,.25);border-radius:6px;line-height:1.5;text-align:left;}
+.theme-toggle-pin{position:absolute;top:20px;right:20px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-size:12px;color:var(--text2);cursor:pointer;}
+.conn-badge{font-size:11px;padding:4px 8px;border-radius:4px;margin-bottom:14px;display:inline-block;}
+.conn-ok{background:rgba(0,200,150,.15);color:var(--accent);}
+.conn-bad{background:rgba(255,71,87,.13);color:var(--danger);}
+
+/* App shell: sidebar layout (unchanged from local version) */
+#appShell{display:flex;min-height:100vh;}
+.sidebar{width:220px;background:var(--surface);border-right:1px solid var(--border);flex-shrink:0;display:flex;flex-direction:column;min-height:100vh;position:sticky;top:0;}
+.sidebar-head{padding:20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;}
+.logo-icon{width:32px;height:32px;background:var(--accent);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;}
+.logo-text{font-family:var(--mono);font-size:13px;line-height:1.4;}
+.logo-text span{color:var(--accent);}
+.sb-nav{padding:12px 8px;flex:1;}
+.nb{display:flex;align-items:center;gap:10px;width:100%;background:none;border:none;color:var(--text2);font-family:var(--sans);font-size:13px;font-weight:500;padding:11px 12px;cursor:pointer;border-radius:6px;text-align:left;margin-bottom:2px;}
+.nb:hover{color:var(--text);background:var(--surface2);}
+.nb.active{color:var(--accent);background:rgba(0,200,150,.1);}
+.nb .ic{font-size:15px;width:18px;text-align:center;}
+.sb-foot{padding:12px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:8px;}
+.acct-email{font-size:11px;color:var(--text3);padding:0 4px;word-break:break-all;}
+.tbtn,.lbtn{background:none;border:1px solid var(--border);border-radius:6px;color:var(--text2);padding:8px 10px;cursor:pointer;font-size:12px;font-family:var(--sans);width:100%;}
+.tbtn:hover{border-color:var(--accent);color:var(--accent);}
+.lbtn:hover{border-color:var(--danger);color:var(--danger);}
+
+main{flex:1;padding:28px 32px;max-width:1000px;}
+
+.srow{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:16px;margin-bottom:24px;}
+.sc{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:18px;position:relative;overflow:hidden;}
+.sc::before{content:"";position:absolute;top:0;left:0;right:0;height:3px;background:var(--accent);}
+.sc.w::before{background:var(--warn);}
+.slabel{font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px;}
+.sval{font-family:var(--mono);font-size:28px;font-weight:600;}
+.ssub{font-size:11px;color:var(--text3);margin-top:4px;}
+
+.sh{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px;}
+.st{font-size:15px;font-weight:600;}
+.st span{color:var(--text2);font-weight:400;font-size:13px;margin-left:8px;}
+
+.btn{display:inline-flex;align-items:center;gap:6px;border:none;border-radius:6px;cursor:pointer;font-family:var(--sans);font-size:13px;font-weight:500;padding:8px 16px;transition:all .15s;}
+.bp{background:var(--accent);color:#000;}
+.bp:hover{background:#00dfa8;}
+.bs{background:var(--surface2);color:var(--text);border:1px solid var(--border);}
+.bs:hover{border-color:var(--accent);color:var(--accent);}
+.bd{background:var(--danger);color:#fff;}
+.bsm{padding:5px 10px;font-size:12px;}
+.pill-present{border:1px solid var(--accent);color:var(--accent);background:none;}
+.pill-present.active{background:var(--accent);color:#000;}
+.pill-absent{border:1px solid var(--danger);color:var(--danger);background:none;}
+.pill-absent.active{background:var(--danger);color:#fff;}
+.pill-late{border:1px solid var(--warn);color:var(--warn);background:none;}
+.pill-late.active{background:var(--warn);color:#000;}
+.pill-excused{border:1px solid var(--accent2);color:var(--accent2);background:none;}
+.pill-excused.active{background:var(--accent2);color:#fff;}
+
+.tw{background:var(--surface);border:1px solid var(--border);border-radius:8px;overflow:hidden;}
+table{width:100%;border-collapse:collapse;}
+thead{background:var(--surface2);}
+th{padding:11px 14px;text-align:left;font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.07em;border-bottom:1px solid var(--border);}
+td{padding:11px 14px;border-bottom:1px solid var(--border);color:var(--text);font-size:13px;}
+tr:last-child td{border-bottom:none;}
+tr:hover td{background:rgba(128,128,128,.05);}
+
+.badge{display:inline-block;padding:3px 8px;border-radius:4px;font-size:11px;font-weight:600;font-family:var(--mono);}
+.bok{background:rgba(0,200,150,.15);color:var(--accent);}
+.bpos{background:rgba(0,200,150,.15);color:var(--accent);}
+.bcon{background:rgba(255,71,87,.13);color:var(--danger);}
+.bgen{background:rgba(0,153,255,.13);color:var(--accent2);}
+.b-assigned{background:var(--surface2);color:var(--text3);}
+.b-submitted{background:rgba(0,153,255,.13);color:var(--accent2);}
+.b-graded{background:rgba(255,179,0,.13);color:var(--warn);}
+.b-returned{background:rgba(0,200,150,.15);color:var(--accent);}
+
+label{font-size:12px;color:var(--text2);font-weight:500;display:block;margin-bottom:6px;}
+input,select{background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:var(--sans);font-size:13px;padding:9px 12px;outline:none;width:100%;}
+input:focus,select:focus{border-color:var(--accent);}
+.fg{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+.fgp.full{grid-column:1/-1;}
+.form-box{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:18px;margin-bottom:20px;display:grid;gap:12px;}
+
+.note-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px;margin-bottom:14px;}
+.note-line{font-size:13px;color:var(--text2);margin-bottom:8px;padding-left:10px;border-left:2px solid var(--border);display:flex;flex-wrap:wrap;gap:6px;align-items:baseline;}
+.note-date{color:var(--text3);font-size:11px;font-family:var(--mono);}
+.note-cat-select{width:auto;padding:6px 8px;font-size:12px;}
+
+.empty{text-align:center;padding:48px;color:var(--text3);}
+.eico{font-size:36px;margin-bottom:12px;}
+.hidden{display:none!important;}
+.banner{font-size:13px;padding:10px 14px;border-radius:6px;margin-bottom:18px;}
+.banner.error{background:#fbeee7;color:#a5502f;border:1px solid #e9c4ac;}
+.banner.info{background:rgba(0,153,255,.1);color:var(--accent2);border:1px solid rgba(0,153,255,.25);}
+
+.access-code-row{display:flex;align-items:center;gap:8px;}
+.access-code-row code{font-family:var(--mono);font-size:12px;background:var(--surface2);padding:3px 8px;border-radius:4px;border:1px solid var(--border);}
+
+.week-grid{display:grid;grid-template-columns:1.6fr repeat(5,1fr);gap:0;background:var(--surface);border:1px solid var(--border);border-radius:8px;overflow:hidden;}
+.week-grid > div{padding:10px 12px;border-bottom:1px solid var(--border);font-size:12px;display:flex;align-items:center;justify-content:center;text-align:center;}
+.week-grid > div:first-child{justify-content:flex-start;text-align:left;font-weight:500;}
+.week-head{background:var(--surface2);font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text2);font-weight:600;}
+.att-cell{width:26px;height:26px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:12px;margin:0 auto;}
+.att-cell.present{background:rgba(0,200,150,.15);color:var(--accent);}
+.att-cell.absent{background:rgba(255,71,87,.13);color:var(--danger);}
+.att-cell.late{background:rgba(255,179,0,.13);color:var(--warn);}
+.att-cell.excused{background:rgba(0,153,255,.13);color:var(--accent2);}
+.att-cell.none{background:var(--surface2);color:var(--text3);}
+
+.spinner{display:inline-block;width:14px;height:14px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+
+@media (max-width:768px){
+  #appShell{flex-direction:column;}
+  .sidebar{width:100%;position:static;flex-direction:row;align-items:center;overflow-x:auto;min-height:auto;}
+  .sidebar-head{border-bottom:none;border-right:1px solid var(--border);}
+  .sb-nav{display:flex;flex:none;padding:8px;}
+  .sb-foot{flex-direction:row;border-top:none;border-left:1px solid var(--border);}
+  main{padding:16px;}
+  .srow{grid-template-columns:1fr 1fr;}
+  .fg{grid-template-columns:1fr;}
+  .tw{overflow-x:auto;}
+  table{min-width:480px;}
+  .week-grid{overflow-x:auto;grid-template-columns:1.4fr repeat(5,60px);font-size:11px;min-width:520px;}
 }
-@media(max-width:650px){
-.nav-links{display:none;flex-direction:column;gap:.8rem;background:#12121f;padding:1.5rem;border-radius:16px;position:absolute;top:70px;right:1rem;width:220px;border:1px solid rgba(0,255,170,.08)}
-.nav-links.active{display:flex}
-.hamburger{display:block}
-.theme-toggle{padding:.3rem .7rem;font-size:.75rem;margin-left:0}
-.hero-content h1{font-size:2rem}
-.hero-content .tagline{font-size:.95rem}
-.terminal-bio{font-size:.7rem;padding:.8rem}
-.terminal-bio .output{padding-left:.7rem}
-.status-badge{font-size:.65rem;padding:.2rem .8rem}
-.container{padding:0 1.2rem}
-.btn{padding:.7rem 1.6rem;font-size:.9rem}
-.whatsapp-float{width:50px;height:50px;font-size:26px;bottom:16px;right:16px}
-}
-[data-theme=light] body{background:#f4f6fb;color:#1a1f36}
-[data-theme=light] nav{background:rgba(244,246,251,.92);border-bottom-color:rgba(0,150,110,.25)}
-[data-theme=light] .logo{background:linear-gradient(135deg,#009966,#007a52,#009966);-webkit-background-clip:text;background-clip:text}
-[data-theme=light] .logo span{color:#009966;-webkit-text-fill-color:#009966}
-[data-theme=light] .nav-links a{color:#4a5568}
-[data-theme=light] .nav-links a:hover{color:#009966}
-[data-theme=light] .nav-links a::after{background:#009966;box-shadow:0 0 10px rgba(0,150,110,.4)}
-[data-theme=light] .status-badge{background:rgba(0,150,110,.12);border-color:#009966;color:#009966}
-[data-theme=light] .status-badge .dot{background:#009966}
-[data-theme=light] .hamburger{color:#1a1f36}
-[data-theme=light] .theme-toggle{background:#fff;border-color:rgba(0,150,110,.25);color:#4a5568}
-[data-theme=light] .theme-toggle:hover{border-color:#009966;color:#009966}
-[data-theme=light] .hero-content h1 span{background:linear-gradient(135deg,#009966,#007a52);-webkit-background-clip:text;background-clip:text}
-[data-theme=light] .hero-content .tagline{color:#009966;text-shadow:0 0 20px rgba(0,150,110,.15)}
-[data-theme=light] .terminal-bio{background:#fff;border-color:rgba(0,150,110,.25);box-shadow:0 0 40px rgba(0,150,110,.05)}
-[data-theme=light] .terminal-bio:hover{border-color:rgba(0,150,110,.5)}
-[data-theme=light] .terminal-bio .prompt,[data-theme=light] .terminal-bio .green{color:#009966}
-[data-theme=light] .terminal-bio .output{color:#4a5568}
-[data-theme=light] .terminal-bio .highlight-text{color:#1a1f36}
-[data-theme=light] .btn-primary{background:linear-gradient(135deg,#009966,#007a52);color:#fff;border-color:#009966;box-shadow:0 0 25px rgba(0,150,110,.25)}
-[data-theme=light] .btn-primary:hover{box-shadow:0 10px 35px rgba(0,150,110,.35)}
-[data-theme=light] .btn-outline{border-color:#009966;color:#009966}
-[data-theme=light] .btn-outline:hover{background:#009966;color:#fff}
-[data-theme=light] .avatar{background:#f4f6fb;color:#009966}
-[data-theme=light] section{background:#fff!important}
-[data-theme=light] section:nth-of-type(even){background:#eef0f7!important}
-[data-theme=light] .section-title::after{background:linear-gradient(135deg,#009966,#007a52);box-shadow:0 0 20px rgba(0,150,110,.3)}
-[data-theme=light] .section-sub{color:#4a5568}
-[data-theme=light] .skill-card{background:#f4f6fb;border-color:rgba(0,150,110,.15)}
-[data-theme=light] .skill-card:hover{border-color:#009966;box-shadow:0 0 30px rgba(0,150,110,.08)}
-[data-theme=light] .skill-card i{color:#009966}
-[data-theme=light] .skill-card span{color:#1a1f36}
-[data-theme=light] .skill-card.teaching{border-color:rgba(2,136,209,.25);background:linear-gradient(135deg,rgba(2,136,209,.06),transparent)}
-[data-theme=light] .skill-card.teaching i{color:#0288d1}
-[data-theme=light] .skill-card.hardware{border-color:rgba(25,118,210,.25);background:linear-gradient(135deg,rgba(25,118,210,.06),transparent)}
-[data-theme=light] .skill-card.hardware i{color:#1976d2}
-[data-theme=light] .project-card{background:#f4f6fb;border-color:rgba(0,150,110,.12)}
-[data-theme=light] .project-card:hover{border-color:#009966;box-shadow:0 0 40px rgba(0,150,110,.08)}
-[data-theme=light] .project-card i{color:#009966}
-[data-theme=light] .project-card h3{color:#1a1f36}
-[data-theme=light] .project-card p{color:#4a5568}
-[data-theme=light] .project-tag{background:rgba(0,150,110,.12);color:#009966;border-color:rgba(0,150,110,.25)}
-[data-theme=light] .project-link{background:#009966;color:#fff;border-color:#009966}
-[data-theme=light] .project-link:hover{background:#007a52}
-[data-theme=light] .project-card.coming-soon i{color:#a0aec0}
-[data-theme=light] .blog-card{background:#f4f6fb;border-color:rgba(0,150,110,.12)}
-[data-theme=light] .blog-card:hover{border-color:#009966}
-[data-theme=light] .blog-card .blog-date{color:#718096}
-[data-theme=light] .blog-card h4{color:#1a1f36}
-[data-theme=light] .blog-card p{color:#4a5568}
-[data-theme=light] .blog-card .read-more{color:#718096}
-[data-theme=light] .contact-item{background:#f4f6fb;border-color:rgba(0,150,110,.12)}
-[data-theme=light] .contact-item:hover{border-color:#009966}
-[data-theme=light] .contact-item i{color:#009966}
-[data-theme=light] .contact-item a{color:#1a1f36}
-[data-theme=light] .contact-item a:hover{color:#009966}
-[data-theme=light] .social-links a{background:#f4f6fb;border-color:rgba(0,150,110,.12);color:#4a5568}
-[data-theme=light] .social-links a:hover{background:#009966;color:#fff;box-shadow:0 0 30px rgba(0,150,110,.3)}
-[data-theme=light] footer{border-top-color:rgba(0,150,110,.12);color:#718096}
-[data-theme=light] footer i,[data-theme=light] footer .highlight{color:#009966}
-[data-theme=light] .footer-terminal{color:#a0aec0}
 </style>
 </head>
 <body>
-<nav>
-<div class="container">
-<div class="logo">&lt;G<span>O</span>/&gt;</div>
-<ul class="nav-links" id="navLinks">
-<li><a href="#hero">Home</a></li>
-<li><a href="#skills">Skills</a></li>
-<li><a href="#projects">Projects</a></li>
-<li><a href="#blog">Blog</a></li>
-<li><a href="#contact">Contact</a></li>
-<li><span class="status-badge"><span class="dot"></span> Open to Collab</span></li>
-<li><button class="theme-toggle" id="themeToggle" type="button" aria-label="Toggle theme"><i class="fas fa-sun"></i> <span id="themeLabel">Light</span></button></li>
-</ul>
-<div class="hamburger" id="hamburger"><i class="fas fa-bars"></i></div>
+
+<!-- LOGIN SCREEN (PIN-gated; see auth note in script) -->
+<div id="login-screen">
+  <button class="theme-toggle-pin" id="pinThemeToggle">☀️ Light</button>
+  <div class="login-box">
+    <div class="login-title" id="loginTitle">Class 5A</div>
+    <div class="login-sub" id="pinSub">Enter your teacher PIN</div>
+    <div id="connBadge" class="conn-badge">Connecting…</div>
+    <div class="pin-dots">
+      <div class="pin-dot" id="pd0"></div>
+      <div class="pin-dot" id="pd1"></div>
+      <div class="pin-dot" id="pd2"></div>
+      <div class="pin-dot" id="pd3"></div>
+    </div>
+    <div class="login-err" id="loginError"></div>
+    <div class="pin-pad">
+      <button class="pin-key" onclick="pinKey('1')">1</button>
+      <button class="pin-key" onclick="pinKey('2')">2</button>
+      <button class="pin-key" onclick="pinKey('3')">3</button>
+      <button class="pin-key" onclick="pinKey('4')">4</button>
+      <button class="pin-key" onclick="pinKey('5')">5</button>
+      <button class="pin-key" onclick="pinKey('6')">6</button>
+      <button class="pin-key" onclick="pinKey('7')">7</button>
+      <button class="pin-key" onclick="pinKey('8')">8</button>
+      <button class="pin-key" onclick="pinKey('9')">9</button>
+      <button class="pin-key" style="grid-column:2" onclick="pinKey('0')">0</button>
+      <button class="pin-key del" onclick="pinDel()">⌫</button>
+    </div>
+    <div class="login-note">Offline-first: works without internet and syncs when you're back online.</div>
+    <div class="risk-note">Saved on this device and synced to the cloud when online. The cloud database rules are still open (testing mode), so don't store sensitive data yet. Download a backup from Settings now and then.</div>
+  </div>
 </div>
-</nav>
-<section class="hero" id="hero">
-<div class="container">
-<div class="hero-content">
-<h1>Gerald <span>Owusu</span></h1>
-<div class="tagline"><i class="fas fa-terminal"></i> Educator &amp; IT Professional</div>
-<div class="terminal-bio">
-<div class="line"><span class="prompt">$</span> whoami</div>
-<div class="line"><span class="output">gerald@kernel-dev <span class="highlight-text">• Educator • Hardware &amp; Software • Kernel Builder • IT Consultant</span></span></div>
-<div class="line" style="margin-top:6px"><span class="prompt">$</span> cat ~/skills.txt</div>
-<div class="line"><span class="output"><span class="green">▸</span> Classroom Teaching (short-term placements)</span></div>
-<div class="line"><span class="output"><span class="green">▸</span> Peer Tutoring &amp; Study Support</span></div>
-<div class="line"><span class="output"><span class="green">▸</span> Educational Technology (EdTech)</span></div>
-<div class="line"><span class="output"><span class="green">▸</span> Android Kernel &amp; AOSP</span></div>
-<div class="line"><span class="output"><span class="green">▸</span> Custom ROM Porting (Redmi / Xiaomi)</span></div>
-<div class="line"><span class="output"><span class="green">▸</span> Web Apps &amp; Progressive Web Apps</span></div>
-<div class="line"><span class="output"><span class="green">▸</span> Cloud Systems (Firebase, Firestore)</span></div>
-<div class="line"><span class="output"><span class="green">▸</span> Windows Programs (.NET/C#)</span></div>
-<div class="line"><span class="output"><span class="green">▸</span> Bash Scripting &amp; Automation</span></div>
-<div class="line"><span class="output"><span class="green">▸</span> VPS / VPN Solutions (WireGuard, OpenVPN)</span></div>
-<div class="line"><span class="output"><span class="green">▸</span> <span style="color:#4facfe">Laptop &amp; Mobile Hardware Repair (Component-Level)</span></span></div>
-<div class="line" style="margin-top:6px"><span class="prompt">$</span> uptime</div>
-<div class="line"><span class="output">Educating, building, and deploying since 2010 🔥</span></div>
+
+<!-- APP SHELL -->
+<div id="appShell" class="hidden">
+  <div class="sidebar">
+    <div class="sidebar-head">
+      <div class="logo-icon">🏫</div>
+      <div class="logo-text">CLASS<span>5A</span><br>Sync</div>
+    </div>
+    <div class="sb-nav">
+      <button class="nb active" data-view="dashboard"><span class="ic">📊</span>Dashboard</button>
+      <button class="nb" data-view="roster"><span class="ic">🧒</span>Students</button>
+      <button class="nb" data-view="attendance"><span class="ic">✅</span>Attendance</button>
+      <button class="nb" data-view="grades"><span class="ic">📝</span>Grades</button>
+      <button class="nb" data-view="notes"><span class="ic">🗒️</span>Notes</button>
+      <button class="nb" data-view="announcements"><span class="ic">📢</span>Announcements</button>
+      <button class="nb" data-view="calendar"><span class="ic">🗓️</span>Calendar</button>
+      <button class="nb" data-view="resources"><span class="ic">📎</span>Resources</button>
+      <button class="nb" data-view="reports"><span class="ic">📊</span>Reports</button>
+      <button class="nb" data-view="settings"><span class="ic">⚙️</span>Settings</button>
+    </div>
+    <div class="sb-foot">
+      <button class="tbtn" id="syncStatus" onclick="__syncNow()" style="margin-bottom:2px;">Sync…</button>
+      <select id="classSelect" onchange="switchClass(this.value)" style="margin-bottom:2px;"></select>
+      <button class="tbtn" id="themeToggle">☀️ Light</button>
+      <button class="lbtn" id="signOutBtn">Lock</button>
+    </div>
+  </div>
+
+  <main id="main"></main>
 </div>
-<div class="btn-group">
-<a href="#projects" class="btn btn-primary">Explore My Work</a>
-<a href="#contact" class="btn btn-outline">Connect</a>
-<a href="#" class="btn btn-resume" onclick="return false"><i class="fas fa-file-pdf"></i> Resume (soon)</a>
-</div>
-</div>
-<div class="hero-image">
-<div class="avatar-wrapper">
-<div class="avatar"><i class="fas fa-microchip"></i></div>
-</div>
-</div>
-</div>
-</section>
-<section id="skills" style="background:#0d0d18">
-<div class="container">
-<h2 class="section-title">Arsenal &amp; Tools</h2>
-<p class="section-sub">The tech stack I command</p>
-<div class="skills-grid">
-<div class="skill-card teaching"><i class="fas fa-chalkboard-teacher"></i><span>Teaching / EdTech</span></div>
-<div class="skill-card"><i class="fas fa-graduation-cap"></i><span>Classroom Mgmt</span></div>
-<div class="skill-card"><i class="fab fa-android"></i><span>Android Kernel</span></div>
-<div class="skill-card"><i class="fas fa-microchip"></i><span>C/C++</span></div>
-<div class="skill-card"><i class="fas fa-code"></i><span>JavaScript</span></div>
-<div class="skill-card"><i class="fas fa-terminal"></i><span>Bash Scripting</span></div>
-<div class="skill-card"><i class="fab fa-windows"></i><span>.NET / C#</span></div>
-<div class="skill-card"><i class="fas fa-cloud"></i><span>VPS / Hosting</span></div>
-<div class="skill-card"><i class="fas fa-shield-alt"></i><span>VPN / Networking</span></div>
-<div class="skill-card hardware"><i class="fas fa-tools"></i><span>Hardware Repair</span></div>
-</div>
-</div>
-</section>
-<section id="projects">
-<div class="container">
-<h2 class="section-title">Flagship Projects</h2>
-<p class="section-sub">Education, health, and systems projects</p>
-<div class="projects-grid">
-<div class="project-card">
-<i class="fas fa-clinic-medical"></i>
-<h3>Facility Stores</h3>
-<p>Live inventory management app deployed at Adjiringanor Health Center. Tracks 290+ items across 5 departments with real-time alerts, cloud sync, and Excel import.</p>
-<span class="project-tag">Inventory · Cloud Sync</span>
-<a href="https://geraldsays.github.io/facility-stores" target="_blank" class="project-link">Live Demo →</a>
-</div>
-<div class="project-card">
-<i class="fas fa-chalkboard-teacher"></i>
-<h3>Class 5A Classroom Manager</h3>
-<p>Cloud-based classroom management system for primary school teachers — live roster, daily attendance with one-tap "mark all present", grade tracking, and categorized student notes. Includes a read-only parent portal.</p>
-<span class="project-tag">JavaScript · EdTech</span>
-<a href="https://geraldsays.github.io/thecms" target="_blank" class="project-link">Teacher App →</a>
-<a href="https://geraldsays.github.io/parents" target="_blank" class="project-link" style="margin-left:6px;background:#0099ff">Parent View →</a>
-</div>
-<div class="project-card">
-<i class="fas fa-rocket"></i>
-<h3>Custom Android Kernel</h3>
-<p>Kernel builds for ARM64/Qualcomm platforms (Snapdragon 680 / Redmi Note 11). Custom modules for WiFi crypto, RMNET, and TCP congestion control.</p>
-<span class="project-tag">C · AOSP · arm64</span>
-</div>
-<div class="project-card coming-soon">
-<i class="fas fa-satellite"></i>
-<h3>StealthVPN <small style="color:#666;font-size:.7rem">(coming soon)</small></h3>
-<p>Self-hosted VPN solution with WireGuard, obfuscation, and multi-hop routing — currently in development.</p>
-<span class="project-tag">Bash · WireGuard · VPS</span>
-</div>
-<div class="project-card coming-soon">
-<i class="fas fa-robot"></i>
-<h3>SysMon Daemon <small style="color:#666;font-size:.7rem">(coming soon)</small></h3>
-<p>Lightweight Windows system monitor with real-time resource tracking and alerting — in development.</p>
-<span class="project-tag">C# · .NET · WPF</span>
-</div>
-</div>
-</div>
-</section>
-<section id="blog" style="background:#0d0d18">
-<div class="container">
-<h2 class="section-title">Tech Blog</h2>
-<p class="section-sub">Thoughts, tutorials, and deep dives</p>
-<div class="blog-grid">
-<div class="blog-card coming-soon">
-<div class="blog-date">Coming soon</div>
-<h4>Building a Custom Kernel for Redmi</h4>
-<p>Step-by-step guide to compiling and optimizing AOSP for Xiaomi devices.</p>
-<span class="read-more">Coming soon</span>
-</div>
-<div class="blog-card coming-soon">
-<div class="blog-date">Coming soon</div>
-<h4>From Health Center to Code</h4>
-<p>How a health facility inventory system got built from scratch.</p>
-<span class="read-more">Coming soon</span>
-</div>
-<div class="blog-card coming-soon">
-<div class="blog-date">Coming soon</div>
-<h4>Laptop Motherboard Repair 101</h4>
-<p>Diagnosing and fixing component-level failures on modern laptops.</p>
-<span class="read-more">Coming soon</span>
-</div>
-</div>
-</div>
-</section>
-<section id="contact">
-<div class="container">
-<h2 class="section-title">Reach Out</h2>
-<p class="section-sub">Let's build something legendary</p>
-<div class="contact-info">
-<div class="contact-item">
-<i class="fas fa-envelope"></i>
-<a href="mailto:Geraldsays@gmail.com">Geraldsays@gmail.com</a>
-</div>
-<div class="contact-item">
-<i class="fas fa-phone"></i>
-<a href="tel:+233549956653">Call: 0549 956 653</a>
-</div>
-<div class="contact-item">
-<i class="fab fa-whatsapp"></i>
-<a href="https://wa.me/233556181986?text=Hello%20Gerald%2C%20I%20found%20your%20portfolio%20and%20would%20like%20to%20connect." target="_blank">WhatsApp: 0556 181 986</a>
-</div>
-<div class="contact-item">
-<i class="fab fa-github"></i>
-<a href="https://geraldsays.github.io" target="_blank">geraldsays.github.io</a>
-</div>
-<div class="contact-item">
-<i class="fas fa-briefcase"></i>
-<span>Available for collabs &amp; consulting</span>
-</div>
-</div>
-<div class="social-links">
-<a href="https://geraldsays.github.io" target="_blank"><i class="fab fa-github"></i></a>
-<a href="https://wa.me/233556181986" target="_blank" title="WhatsApp Business"><i class="fab fa-whatsapp"></i></a>
-<a href="#" class="soon" title="Coming soon" onclick="return false"><i class="fab fa-linkedin-in"></i></a>
-<a href="#" class="soon" title="Coming soon" onclick="return false"><i class="fab fa-twitter"></i></a>
-<a href="#" class="soon" title="Coming soon" onclick="return false"><i class="fab fa-youtube"></i></a>
-</div>
-</div>
-</section>
-<footer>
-<div class="container">
-<p>Built with <i class="fas fa-heart"></i> by <span class="highlight">Gerald Owusu</span> &bull; 2026</p>
-<p class="footer-contact">
-<i class="fas fa-phone" style="color:#00ffaa"></i>
-<a href="tel:+233549956653" style="color:#00ffaa">0549 956 653</a>
-&nbsp;·&nbsp;
-<i class="fab fa-whatsapp" style="color:#25D366"></i>
-<a href="https://wa.me/233556181986" target="_blank" style="color:#25D366">WhatsApp Business: 0556 181 986</a>
-</p>
-<div class="footer-terminal">
-<span style="color:#00ffaa">$</span> echo "sudo rm -rf /problems" <span style="color:#555"># living the dream</span>
-</div>
-</div>
-</footer>
-<a href="https://wa.me/233556181986?text=Hello%20Gerald%2C%20I%20found%20your%20portfolio%20and%20would%20like%20to%20connect." class="whatsapp-float" target="_blank" aria-label="Chat on WhatsApp Business">
-<i class="fab fa-whatsapp"></i>
-</a>
+
 <script>
-!function(){const e="gerald-portfolio-theme",t=document.getElementById("themeToggle"),o=document.getElementById("themeLabel"),n=t.querySelector("i");function l(l){"light"===l?(document.documentElement.setAttribute("data-theme","light"),o.textContent="Dark",n.className="fas fa-moon"):(document.documentElement.removeAttribute("data-theme"),o.textContent="Light",n.className="fas fa-sun");try{localStorage.setItem(e,l)}catch(e){}}let s=localStorage.getItem(e);s||(s=window.matchMedia("(prefers-color-scheme: light)").matches?"light":"dark"),l(s),t.addEventListener("click",(function(){l("light"===document.documentElement.getAttribute("data-theme")?"dark":"light")}))}(),function(){const e=document.getElementById("hamburger"),t=document.getElementById("navLinks");e.addEventListener("click",(function(){t.classList.toggle("active")})),document.querySelectorAll(".nav-links a").forEach((function(e){e.addEventListener("click",(function(){t.classList.remove("active")}))}))}(),function(){document.querySelectorAll('a[href^="#"]').forEach((function(e){e.addEventListener("click",(function(e){const t=this.getAttribute("href");if(!t||"#"===t)return;const o=document.querySelector(t);o&&(e.preventDefault(),o.scrollIntoView({behavior:"smooth",block:"start"}))}))}))}();
+(function () {
+  var KEY = "classroom_hybrid_db_v1", CONFIG = {
+    apiKey: "AIzaSyBIX7pTbcxdbhv9bD04zCYZm_SaWmoFKSg",
+    authDomain: "classmanager-2776b.firebaseapp.com",
+    projectId: "classmanager-2776b",
+    storageBucket: "classmanager-2776b.firebasestorage.app",
+    messagingSenderId: "982534297826",
+    appId: "1:982534297826:web:fbee27b128f862837fe6bb"
+  };
+  var REAL = (window.firebase && window.firebase.firestore) ? window.firebase : null, realDb = null;
+  var store = {}, meta = {}, delq = {}, listeners = [], dirty = {}, saveTimer = null, pushTimer = null, syncing = false;
+  try { var saved = JSON.parse(localStorage.getItem(KEY) || "{}"); store = saved.s || {}; meta = saved.m || {}; delq = saved.q || {}; } catch (e) {}
+  function persist() { clearTimeout(saveTimer); saveTimer = setTimeout(function () { try { localStorage.setItem(KEY, JSON.stringify({ s: store, m: meta, q: delq })); } catch (e) { console.error("Local save failed:", e); } }, 30); }
+  function copy(o) { return JSON.parse(JSON.stringify(o)); }
+  function uid() { return "id" + Date.now().toString(36) + Math.random().toString(36).slice(2, 10); }
+  function parentOf(p) { return p.slice(0, p.lastIndexOf("/")); }
+  function childPaths(c) { return Object.keys(store).filter(function (p) { return p.indexOf(c + "/") === 0 && p.indexOf("/", c.length + 1) === -1; }); }
+  function docSnap(p) { var has = Object.prototype.hasOwnProperty.call(store, p); return { id: p.slice(p.lastIndexOf("/") + 1), exists: has, ref: docRef(p), data: function () { return has ? copy(store[p]) : undefined; } }; }
+  function snapFor(c, order) {
+    var docs = childPaths(c).map(docSnap);
+    if (order) docs.sort(function (a, b) { var x = a.data()[order.f], y = b.data()[order.f], r = x < y ? -1 : x > y ? 1 : 0; return order.d === "desc" ? -r : r; });
+    return { docs: docs, size: docs.length, empty: !docs.length, forEach: function (fn) { docs.forEach(fn); } };
+  }
+  function notify(c) {
+    if (dirty[c]) return; dirty[c] = 1;
+    setTimeout(function () { delete dirty[c]; listeners.slice().forEach(function (l) { if (l.path === c) l.cb(snapFor(l.path, l.order)); }); }, 0);
+  }
+  // ---- local writes: remember what still needs uploading ----
+  function write(p, d, merge) {
+    store[p] = merge && store[p] ? Object.assign({}, store[p], copy(d)) : copy(d);
+    meta[p] = { t: Date.now(), dirty: true, synced: !!(meta[p] && meta[p].synced) }; delete delq[p];
+    persist(); notify(parentOf(p)); schedulePush();
+  }
+  function remove(p) {
+    if (!(p in store)) return;
+    delete store[p]; if (meta[p] && meta[p].synced) delq[p] = Date.now(); delete meta[p];
+    persist(); notify(parentOf(p)); schedulePush();
+  }
+  function docRef(p) {
+    return { id: p.slice(p.lastIndexOf("/") + 1), path: p,
+      get: function () {
+        // Attached files are big, so they are only downloaded when someone opens one.
+        if (!(p in store) && p.indexOf("resourceFiles/") === 0 && realDb && navigator.onLine) {
+          return realDb.doc(p).get().then(function (s) { if (s.exists) { var r = s.data(); delete r._t; store[p] = r; meta[p] = { t: 0, dirty: false, synced: true }; persist(); } return docSnap(p); }, function () { return docSnap(p); });
+        }
+        return Promise.resolve(docSnap(p));
+      },
+      set: function (d, o) { write(p, d, o && o.merge); return Promise.resolve(); },
+      update: function (d) { if (!(p in store)) return Promise.reject(new Error("No document to update")); write(p, d, true); return Promise.resolve(); },
+      delete: function () { remove(p); return Promise.resolve(); },
+      collection: function (n) { return collRef(p + "/" + n); } };
+  }
+  function collRef(path, order) {
+    return { path: path,
+      doc: function (id) { return docRef(path + "/" + id); },
+      add: function (d) { var id = uid(); write(path + "/" + id, d); return Promise.resolve(docRef(path + "/" + id)); },
+      get: function () { return Promise.resolve(snapFor(path, order)); },
+      orderBy: function (f, d) { return collRef(path, { f: f, d: d || "asc" }); },
+      onSnapshot: function (cb) {
+        var l = { path: path, order: order, cb: cb }; listeners.push(l);
+        setTimeout(function () { cb(snapFor(path, order)); }, 0);
+        return function () { listeners = listeners.filter(function (x) { return x !== l; }); };
+      } };
+  }
+  var db = {
+    collection: function (n) { return collRef(n); },
+    batch: function () {
+      var ops = [];
+      return { set: function (r, d, o) { ops.push(function () { write(r.path, d, o && o.merge); }); },
+               delete: function (r) { ops.push(function () { remove(r.path); }); },
+               commit: function () { ops.forEach(function (f) { f(); }); return Promise.resolve(); } };
+    }
+  };
+  var stand = { initializeApp: function () {}, firestore: function () { return db; } };
+  window.firebase = stand;
+  window.__localStore = function () { return store; };
+
+  // ---- cloud sync ----
+  function setStatus(t) { var e = document.getElementById("syncStatus"); if (e) e.textContent = t; }
+  function waiting() { return Object.keys(meta).filter(function (p) { return meta[p].dirty; }).length + Object.keys(delq).length; }
+  function idle() { var n = waiting(); setStatus(!navigator.onLine ? "Offline · " + n + " waiting" : n ? "Sync · " + n + " waiting" : "Synced ✓"); }
+  function schedulePush() { idle(); clearTimeout(pushTimer); pushTimer = setTimeout(syncOnce, 3000); }
+  function ensureReal() {
+    if (realDb) return Promise.resolve(true);
+    return new Promise(function (resolve) {
+      function boot() {
+        try { try { REAL.app(); } catch (e) { REAL.initializeApp(CONFIG); } realDb = REAL.firestore(); resolve(true); }
+        catch (e) { console.error(e); resolve(false); }
+      }
+      if (REAL) return boot();
+      var urls = ["https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js", "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore-compat.js"], i = 0;
+      (function next() {
+        if (i >= urls.length) { REAL = window.firebase; window.firebase = stand; return boot(); }
+        var s = document.createElement("script"); s.src = urls[i++]; s.crossOrigin = "anonymous";
+        s.onload = next; s.onerror = function () { window.firebase = stand; resolve(false); };
+        document.head.appendChild(s);
+      })();
+    });
+  }
+  async function syncOnce() {
+    if (syncing) return;
+    if (!navigator.onLine) { idle(); return; }
+    syncing = true; setStatus("Syncing…");
+    try {
+      if (!(await ensureReal())) throw new Error("cloud unavailable");
+      // 1) upload local changes
+      var up = Object.keys(meta).filter(function (p) { return meta[p].dirty && p in store; });
+      for (var i = 0; i < up.length; i += 400) {
+        var chunk = up.slice(i, i + 400), b = realDb.batch();
+        chunk.forEach(function (p) { b.set(realDb.doc(p), Object.assign({}, store[p], { _t: meta[p].t })); });
+        await b.commit();
+        chunk.forEach(function (p) { if (meta[p]) { meta[p].dirty = false; meta[p].synced = true; } });
+      }
+      var dl = Object.keys(delq);
+      for (i = 0; i < dl.length; i += 400) { var b2 = realDb.batch(); dl.slice(i, i + 400).forEach(function (p) { b2.delete(realDb.doc(p)); }); await b2.commit(); }
+      dl.forEach(function (p) { delete delq[p]; });
+      // 2) download cloud changes (newer edit wins; deletions made elsewhere are applied here)
+      var changed = {};
+      async function pull(c) {
+        var snap = await realDb.collection(c).get(), seen = {};
+        snap.forEach(function (d) {
+          var p = c + "/" + d.id, r = d.data(), rt = r._t || 0; delete r._t; seen[p] = 1;
+          var m = meta[p];
+          if (p in delq) return;
+          if (!(p in store) || !m || !m.dirty || rt > m.t) {
+            if (!(p in store) || JSON.stringify(store[p]) !== JSON.stringify(r)) { store[p] = r; changed[c] = 1; }
+            meta[p] = { t: rt || (m ? m.t : 0), dirty: false, synced: true };
+          }
+        });
+        childPaths(c).forEach(function (p) {
+          if (!seen[p] && !(meta[p] && meta[p].dirty)) {
+            Object.keys(store).forEach(function (k) { if (k === p || k.indexOf(p + "/") === 0) { delete store[k]; delete meta[k]; } });
+            changed[c] = 1;
+          }
+        });
+        return snap;
+      }
+      var snaps = await Promise.all(["students", "assignments", "announcements", "classes", "events", "resources"].map(pull));
+      var subs = [];
+      snaps[0].forEach(function (d) { ["attendance", "grades", "notes"].forEach(function (s) { subs.push(pull("students/" + d.id + "/" + s)); }); });
+      await Promise.all(subs);
+      Object.keys(changed).forEach(function (k) { if (k.indexOf("students/") === 0) changed.students = 1; });
+      persist(); Object.keys(changed).forEach(function (k) { if (k.indexOf("/") === -1) notify(k); });
+      var n = waiting();
+      setStatus(n ? "Sync · " + n + " waiting" : "Synced ✓ " + new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }));
+    } catch (e) { console.error("Sync failed:", e); setStatus("Offline · " + waiting() + " waiting"); }
+    syncing = false;
+  }
+  window.__syncNow = syncOnce;
+  window.addEventListener("online", syncOnce); window.addEventListener("offline", idle);
+  setInterval(syncOnce, 600000); setTimeout(syncOnce, 1500); idle();
+
+  // ---- backup / restore ----
+  window.localBackupExport = function () {
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([JSON.stringify({ s: store })], { type: "application/json" }));
+    a.download = "classroom-backup-" + new Date().toISOString().slice(0, 10) + ".json";
+    document.body.appendChild(a); a.click(); a.remove();
+  };
+  window.localBackupImport = function (ev) {
+    var f = ev.target.files[0]; ev.target.value = ""; if (!f) return;
+    var r = new FileReader();
+    r.onload = function () {
+      try {
+        var parsed = JSON.parse(r.result), s = parsed && parsed.s ? parsed.s : parsed;  // also accepts backups from the offline-only version
+        if (!s || typeof s !== "object" || Array.isArray(s)) throw new Error("bad");
+        if (!confirm("This adds the backup's data to this device and uploads it to the cloud. Existing data is kept. Continue?")) return;
+        Object.keys(s).forEach(function (p) { store[p] = s[p]; meta[p] = { t: Date.now(), dirty: true, synced: false }; delete delq[p]; });
+        localStorage.setItem(KEY, JSON.stringify({ s: store, m: meta, q: delq })); location.reload();
+      } catch (e) { alert("That doesn't look like a backup file from this app."); }
+    };
+    r.readAsText(f);
+  };
+})();
+
 </script>
-<!-- Protected by Geraldsays -->
-<script>try{console.log("%c Protected by Geraldsays ","background:#00c896;color:#00110d;padding:4px 8px;border-radius:6px;font-weight:700");var _wm=document.createElement("div");_wm.style.display="none";_wm.dataset.wm="Protected by Geraldsays";document.documentElement.appendChild(_wm)}catch(e){}</script>
+<script>
+  // ============================================================
+  // CLOUD VERSION — same features and UI as the local/offline app,
+  // but backed by Firestore for shared, multi-device data. Access
+  // is currently PIN-only with no real Firebase Auth (see the
+  // testing-mode notice further down) — not real per-teacher login.
+  // This runs ALONGSIDE the local version, not replacing it — pick
+  // whichever you want to use day to day; nothing here touches the
+  // local version's data.
+  //
+  // Data shape (matches the security rules already written):
+  //   /students/{accessCode}
+  //   /students/{accessCode}/attendance/{date}
+  //   /students/{accessCode}/grades/{assignment}
+  //   /students/{accessCode}/notes/{noteId}
+  // ============================================================
+
+  const FIREBASE_CONFIG = {
+    apiKey: "AIzaSyBIX7pTbcxdbhv9bD04zCYZm_SaWmoFKSg",
+    authDomain: "classmanager-2776b.firebaseapp.com",
+    projectId: "classmanager-2776b",
+    storageBucket: "classmanager-2776b.firebasestorage.app",
+    messagingSenderId: "982534297826",
+    appId: "1:982534297826:web:fbee27b128f862837fe6bb"
+  };
+
+  let firebaseInitError = null;
+  let db;
+  try {
+    firebase.initializeApp(FIREBASE_CONFIG);
+    db = firebase.firestore();
+  } catch (err) {
+    firebaseInitError = err;
+    console.error("Firebase failed to initialize:", err);
+  }
+
+  // ============================================================
+  // ⚠️ TEMPORARY TESTING CONFIGURATION — READ BEFORE SHARING ⚠️
+  // ------------------------------------------------------------
+  // This version connects to Firestore with NO Firebase Auth
+  // identity at all. It relies entirely on the database's security
+  // rules being fully open (allow read, write: if true — see
+  // firestore-OPEN-TESTING-ONLY.rules). The PIN below is a LOCAL
+  // UI GATE ONLY: it decides whether THIS BROWSER shows the app.
+  // It does NOT restrict the database itself in any way.
+  //
+  // Anyone who has this file's Firebase config values — visible
+  // right in this file's source — can read and write every
+  // document in this project directly, with no PIN, no login,
+  // nothing in the way. This is accepted deliberately for solo
+  // testing only. BEFORE any real teacher, parent, or student
+  // data goes in, or before this file is shared with anyone else:
+  //   1. Replace the Firestore rules with the locked-down version
+  //      (firestore.rules — requires a real "teacher" identity)
+  //   2. Re-enable real sign-in (see the earlier hidden-account
+  //      or email/password versions of this app for that pattern)
+  // ============================================================
+
+  const PIN_KEY = "classroom_5a_hybrid_pin";
+  let pinBuffer = "";
+
+  function getStoredPin() { return localStorage.getItem(PIN_KEY); }
+
+  function initPinScreen() {
+    const storedPin = getStoredPin();
+    if (!storedPin) {
+      document.getElementById("pinSub").textContent = "Set a 4-digit PIN for this device";
+    } else {
+      document.getElementById("pinSub").textContent = "Enter your teacher PIN";
+    }
+  }
+  function renderPinDots() {
+    for (let i = 0; i < 4; i++) document.getElementById("pd" + i).classList.toggle("filled", i < pinBuffer.length);
+  }
+  function pinKey(digit) {
+    if (pinBuffer.length >= 4) return;
+    pinBuffer += digit;
+    renderPinDots();
+    if (pinBuffer.length === 4) setTimeout(submitPin, 150);
+  }
+  function pinDel() {
+    pinBuffer = pinBuffer.slice(0, -1);
+    renderPinDots();
+    document.getElementById("loginError").textContent = "";
+  }
+  function submitPin() {
+    const storedPin = getStoredPin();
+    const errorEl = document.getElementById("loginError");
+    if (!storedPin) {
+      localStorage.setItem(PIN_KEY, pinBuffer);
+      tryUnlock();
+      return;
+    }
+    if (pinBuffer === storedPin) {
+      tryUnlock();
+    } else {
+      errorEl.textContent = "Incorrect PIN. Try again.";
+      pinBuffer = "";
+      renderPinDots();
+    }
+  }
+
+  function tryUnlock() {
+    pinBuffer = "";
+    document.getElementById("login-screen").classList.add("hidden");
+    document.getElementById("appShell").classList.remove("hidden");
+    document.getElementById("appShell").style.display = "flex";
+    render();
+  }
+
+  document.getElementById("signOutBtn").addEventListener("click", () => {
+    document.getElementById("appShell").classList.add("hidden");
+    document.getElementById("login-screen").classList.remove("hidden");
+    initPinScreen();
+    renderPinDots();
+  });
+
+  // Connection badge — reflects whether Firebase actually initialized.
+  // (If this shows an error, the PIN pad below will still work —
+  // it no longer depends on Firebase succeeding first.)
+  const badge = document.getElementById("connBadge");
+  if (firebaseInitError) {
+    const sdkMissing = typeof firebase === "undefined";
+    badge.textContent = sdkMissing
+      ? "Could not load Firebase (no internet, or gstatic.com is blocked here) — reload with a connection"
+      : "Firebase failed to connect — check console for error";
+    badge.className = "conn-badge conn-bad";
+  } else {
+    badge.textContent = "Works offline · syncs when online";
+    badge.className = "conn-badge conn-ok";
+  }
+
+  const THEME_KEY = "classroom_5a_theme";
+  let students = []; // hydrated live from Firestore
+  let view = "dashboard";
+  let editingStudentCode = null;
+  let profileCode = null;
+  let resources = [];
+  let unsubscribeResources = null;
+  let calMonth = null;
+  let calendarEvents = [];
+  let unsubscribeEvents = null;
+  let activeClassId = localStorage.getItem("classroom_active_class") || "default";
+  let classesList = [{ id: "default", name: "Class 5A" }];
+  let lastStudentsSnapshot = null;
+  let activeSubmissionAssignment = null; // which assignment's submission tracker is shown on Grades
+  let unsubscribeStudents = null;
+  let todayDate = new Date();
+  let today = todayDate.toISOString().slice(0, 10);
+
+  function getWeekDates() {
+    const d = new Date(todayDate);
+    const day = d.getDay();
+    const mondayOffset = day === 0 ? -6 : 1 - day;
+    const monday = new Date(d);
+    monday.setDate(d.getDate() + mondayOffset);
+    const dates = [];
+    for (let i = 0; i < 5; i++) {
+      const dt = new Date(monday);
+      dt.setDate(monday.getDate() + i);
+      dates.push(dt.toISOString().slice(0, 10));
+    }
+    return dates;
+  }
+  let weekDates = getWeekDates();
+  const weekDayLabels = ["Mon", "Tue", "Wed", "Thu", "Fri"];
+
+  // If the app stays open past midnight, move "today" and the weekly
+  // grid forward instead of leaving yesterday's date active.
+  function refreshDateContext() {
+    const nowStr = new Date().toISOString().slice(0, 10);
+    if (nowStr === today) return false;
+    todayDate = new Date(); today = nowStr; weekDates = getWeekDates();
+    return true;
+  }
+  setInterval(() => { if (refreshDateContext()) render(); }, 60000);
+
+  // ---- Theme ----
+  function applyTheme(theme) {
+    if (theme === "light") document.documentElement.setAttribute("data-theme", "light");
+    else document.documentElement.removeAttribute("data-theme");
+    const label = theme === "light" ? "🌙 Dark" : "☀️ Light";
+    const t1 = document.getElementById("themeToggle");
+    const t2 = document.getElementById("pinThemeToggle");
+    if (t1) t1.textContent = label;
+    if (t2) t2.textContent = label;
+  }
+  function toggleTheme() {
+    const current = localStorage.getItem(THEME_KEY) || "dark";
+    const next = current === "dark" ? "light" : "dark";
+    localStorage.setItem(THEME_KEY, next);
+    applyTheme(next);
+  }
+  document.getElementById("themeToggle").addEventListener("click", toggleTheme);
+  document.getElementById("pinThemeToggle").addEventListener("click", toggleTheme);
+  applyTheme(localStorage.getItem(THEME_KEY) || "dark");
+
+  // ---- Helpers ----
+  function escapeHtml(str) {
+    const div = document.createElement("div");
+    div.textContent = str || "";
+    return div.innerHTML;
+  }
+  // Safe random-ID generator: uses crypto.randomUUID() where available
+  // (modern browsers), falls back to Math.random()-based IDs otherwise
+  // (some Android WebView builds used for APK wrapping lack randomUUID).
+  function randomId() {
+    if (window.crypto && typeof window.crypto.randomUUID === "function") {
+      return window.crypto.randomUUID();
+    }
+    return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+      const r = Math.random() * 16 | 0;
+      const v = c === "x" ? r : (r & 0x3 | 0x8);
+      return v.toString(16);
+    });
+  }
+  function generateAccessCode() { return randomId().split("-").slice(0, 3).join("-"); }
+
+  // ---- On-demand Excel library loading ----
+  // Loaded only when the user actually clicks Import/Export, not
+  // eagerly at page load — so a slow or blocked CDN never delays
+  // the PIN screen or the rest of the app. Tries a locally vendored
+  // copy first (for true offline use — see note below), then falls
+  // through three different CDNs in sequence, so one CDN being
+  // unreachable doesn't kill the feature outright.
+  //
+  // TO GO FULLY OFFLINE: download xlsx.full.min.js (v0.18.5) from
+  // https://cdn.sheetjs.com/xlsx-0.18.5/package/dist/xlsx.full.min.js
+  // and save it next to this HTML file as "lib/xlsx.local.js" — no
+  // code changes needed; it's tried before any CDN and, once present,
+  // skips the network entirely on every future use.
+  function ensureXLSX(callback, onFail) {
+    if (typeof XLSX !== "undefined") { callback(); return; }
+    const sources = [
+      "lib/xlsx.local.js",
+      "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js",
+      "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.min.js",
+      "https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js"
+    ];
+    function tryNext(i) {
+      if (i >= sources.length) {
+        console.warn("XLSX library not available from any source.");
+        if (onFail) onFail();
+        else alert("Could not load the Excel library from any source. Check your internet connection and try again.");
+        return;
+      }
+      const s = document.createElement("script");
+      s.src = sources[i];
+      s.crossOrigin = "anonymous";
+      s.onload = () => { console.log("XLSX loaded from: " + sources[i]); callback(); };
+      s.onerror = () => tryNext(i + 1);
+      document.head.appendChild(s);
+    }
+    tryNext(0);
+  }
+  function average(scores) {
+    if (!scores.length) return "—";
+    return Math.round(scores.reduce((a, b) => a + b, 0) / scores.length);
+  }
+  function findStudent(code) { return students.find((s) => s.accessCode === code); }
+  function catClass(cat) { return cat === "positive" ? "bpos" : cat === "concern" ? "bcon" : "bgen"; }
+  function catLabel(cat) { return cat === "positive" ? "Positive" : cat === "concern" ? "Concern" : "General"; }
+
+  // ---- Connectivity badge shown before sign-in resolves ----
+  // (checkConnection() removed — the silent sign-in above now
+  // reports connection status directly via connBadge.)
+
+  // ---- Firestore: live roster + nested subcollections ----
+  // Guards against overlapping updates: Firestore's onSnapshot fires
+  // again every time ANY write happens (including our own writes,
+  // like marking attendance). Each firing re-fetches every student's
+  // subcollections, which takes a moment. Without a guard, a second
+  // snapshot firing before the first finishes processing would start
+  // a second, overlapping hydrate+render pass — the two can race and
+  // leave the UI stuck showing stale data or appearing unresponsive.
+  // We queue: if a hydrate is already running, remember that a newer
+  // snapshot arrived and re-run once the current pass finishes.
+  let hydrateInProgress = false;
+  let pendingSnapshot = null;
+
+  function attachStudentsListener() {
+    if (unsubscribeStudents) unsubscribeStudents();
+    unsubscribeStudents = db.collection("students").onSnapshot(
+      (snapshot) => { handleSnapshot(snapshot); },
+      (err) => {
+        console.error(err);
+        const main = document.getElementById("main");
+        if (main) main.innerHTML = `<div class="banner error">Could not load students from Firebase. Check your internet connection, or that your account has been added to the "teachers" collection (see setup notes).</div>`;
+      }
+    );
+  }
+
+  async function handleSnapshot(snapshot) {
+    if (hydrateInProgress) {
+      pendingSnapshot = snapshot; // remember the latest, process after current pass
+      return;
+    }
+    hydrateInProgress = true;
+    try {
+      const nextStudents = [];
+      lastStudentsSnapshot = snapshot;
+      for (const doc of snapshot.docs.filter((d) => (d.data().classId || "default") === activeClassId)) {
+        // Safe defaults set immediately — not after hydrateSubcollections()
+        // runs. Without this, any render() that fires in the gap between
+        // "students array updated" and "hydrate finished" (both are async
+        // and Firestore can fire snapshots mid-flight) hits student objects
+        // with no .grades/.attendance/.notes yet, which crashes any code
+        // that loops over them — this was the root cause of the "nothing
+        // responds" symptom.
+        nextStudents.push({ accessCode: doc.id, attendance: {}, grades: [], notes: [], ...doc.data() });
+      }
+      const isFirstLoad = students.length === 0 && nextStudents.length > 0;
+      students = nextStudents;
+      // Only show the "safe defaults, no subcollection data yet" render
+      // on the very first load, where there's nothing better on screen
+      // already. On every later update (e.g. a student added elsewhere),
+      // the existing rendered data stays visible until the fresh,
+      // fully-hydrated data is ready — no flash of empty attendance/
+      // grades/notes for students who were already loaded correctly.
+      if (isFirstLoad) render();
+      await hydrateSubcollections();
+      render();
+    } catch (err) {
+      console.error("Error processing snapshot:", err);
+    } finally {
+      hydrateInProgress = false;
+      if (pendingSnapshot) {
+        const next = pendingSnapshot;
+        pendingSnapshot = null;
+        handleSnapshot(next);
+      }
+    }
+  }
+
+  // Fetches every student's subcollections in parallel, not one student
+  // at a time. With N students this is still 3N reads (unavoidable
+  // without denormalizing the data model), but it no longer waits on
+  // each student sequentially — for a real class size this is the
+  // difference between a brief pause and a visibly slow reload on
+  // every single write anywhere in the app.
+  async function hydrateSubcollections() {
+    await Promise.all(students.map(async (s) => {
+      const [attSnap, gradesSnap, notesSnap] = await Promise.all([
+        db.collection("students").doc(s.accessCode).collection("attendance").get(),
+        db.collection("students").doc(s.accessCode).collection("grades").get(),
+        db.collection("students").doc(s.accessCode).collection("notes").get(),
+      ]);
+      s.attendance = {};
+      attSnap.forEach((d) => { s.attendance[d.id] = d.data().status; });
+      s.grades = [];
+      gradesSnap.forEach((d) => { s.grades.push({ assignment: d.id, score: d.data().score, status: d.data().status || "assigned" }); });
+      s.notes = [];
+      notesSnap.forEach((d) => { s.notes.push({ id: d.id, ...d.data() }); });
+      s.notes.sort((a, b) => (a.date < b.date ? 1 : -1));
+    }));
+  }
+
+  // ---- Actions: Students ----
+  function toggleAddForm() { document.getElementById("addFormBox").classList.toggle("hidden"); }
+
+  async function addStudent() {
+    const name = document.getElementById("newName").value.trim();
+    const guardian = document.getElementById("newGuardian").value.trim();
+    if (!name) return;
+    const accessCode = generateAccessCode();
+    try {
+      await db.collection("students").doc(accessCode).set({ name, guardian, classId: activeClassId, createdAt: new Date().toISOString() });
+      document.getElementById("addFormBox").classList.add("hidden");
+    } catch (err) {
+      console.error(err);
+      alert("Could not save the student. Check your connection and try again.");
+    }
+  }
+
+  function copyCode(code) {
+    // Some sandboxed/in-app browser viewers (e.g. content:// file
+    // viewers) deny the modern clipboard API outright. Try it first;
+    // if denied, fall back to the older selection-based copy method,
+    // which works in far more restrictive contexts. Either way, give
+    // clear feedback rather than failing silently.
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(code).then(
+        () => showCopyFeedback(true),
+        () => { if (!legacyCopy(code)) showCopyFeedback(false); else showCopyFeedback(true); }
+      );
+    } else {
+      showCopyFeedback(legacyCopy(code));
+    }
+  }
+
+  function legacyCopy(text) {
+    try {
+      const textarea = document.createElement("textarea");
+      textarea.value = text;
+      textarea.style.position = "fixed";
+      textarea.style.opacity = "0";
+      document.body.appendChild(textarea);
+      textarea.focus();
+      textarea.select();
+      const ok = document.execCommand("copy");
+      document.body.removeChild(textarea);
+      return ok;
+    } catch (err) {
+      console.error("Legacy copy failed:", err);
+      return false;
+    }
+  }
+
+  function showCopyFeedback(success) {
+    const msg = success ? "Access code copied." : "Could not copy automatically — please select and copy the code manually.";
+    const el = document.createElement("div");
+    el.textContent = msg;
+    el.style.cssText = "position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:" + (success ? "var(--accent)" : "var(--danger)") + ";color:#000;padding:10px 18px;border-radius:6px;font-size:13px;z-index:99999;font-family:-apple-system,sans-serif;";
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), 2200);
+  }
+  function startStudentEdit(code) { editingStudentCode = code; render(); }
+  function cancelStudentEdit() { editingStudentCode = null; render(); }
+
+  // ---- Roster export/import (Excel/CSV, via SheetJS, loaded on demand) ----
+  function exportRoster() {
+    ensureXLSX(() => {
+      const rows = students.map((s) => ({
+        Name: s.name,
+        Guardian: s.guardian || "",
+        "Parent Access Code": s.accessCode
+      }));
+      const worksheet = XLSX.utils.json_to_sheet(rows);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Students");
+      const stamp = new Date().toISOString().slice(0, 10);
+      XLSX.writeFile(workbook, (activeClass().name || "class").replace(/[^a-z0-9]+/gi, "-").toLowerCase() + `-roster-${stamp}.xlsx`);
+    }, () => {
+      alert("Could not load the Excel library to export. Check your internet connection and try again — or ask about setting up offline export.");
+    });
+  }
+
+  function triggerRosterImport() {
+    document.getElementById("rosterImportInput").click();
+  }
+
+  function handleRosterImport(event) {
+    const file = event.target.files[0];
+    event.target.value = ""; // allow re-selecting the same file later
+    if (!file) return;
+
+    const importStatus = document.getElementById("importStatus");
+    if (importStatus) importStatus.textContent = "Loading Excel library...";
+
+    ensureXLSX(
+      () => { processRosterImportFile(file); },
+      () => { if (importStatus) importStatus.textContent = "Could not load the Excel library. Check your internet connection and try again."; }
+    );
+  }
+
+  async function processRosterImportFile(file) {
+    const importStatus = document.getElementById("importStatus");
+    if (importStatus) importStatus.textContent = "Reading file...";
+
+    try {
+      const data = await file.arrayBuffer();
+      const workbook = XLSX.read(data);
+      const firstSheetName = workbook.SheetNames[0];
+      const sheet = workbook.Sheets[firstSheetName];
+      const rows = XLSX.utils.sheet_to_json(sheet, { defval: "" });
+
+      if (!rows.length) {
+        if (importStatus) importStatus.textContent = "The file has no rows to import.";
+        return;
+      }
+
+      // Accept a few common header spellings so this isn't picky about
+      // exactly matching our own export format.
+      function getField(row, candidates) {
+        for (const key of Object.keys(row)) {
+          if (candidates.includes(key.trim().toLowerCase())) return String(row[key]).trim();
+        }
+        return "";
+      }
+
+      // Build the list of valid rows first, then write them in batches
+      // (Firestore caps a single batch at 500 operations, so chunk at
+      // 450 to leave headroom) instead of one sequential round-trip per
+      // student — much faster for any real-sized roster file.
+      const toImport = [];
+      let skipped = 0;
+      for (const row of rows) {
+        const name = getField(row, ["name", "full name", "student name", "student"]);
+        const guardian = getField(row, ["guardian", "guardian name", "parent", "parent name"]);
+        if (!name) { skipped++; continue; }
+        toImport.push({ accessCode: generateAccessCode(), name, guardian });
+      }
+
+      if (importStatus) importStatus.textContent = `Importing ${toImport.length} student${toImport.length === 1 ? '' : 's'}...`;
+
+      const CHUNK_SIZE = 450;
+      for (let i = 0; i < toImport.length; i += CHUNK_SIZE) {
+        const chunk = toImport.slice(i, i + CHUNK_SIZE);
+        const batch = db.batch();
+        chunk.forEach((row) => {
+          const ref = db.collection("students").doc(row.accessCode);
+          batch.set(ref, { name: row.name, guardian: row.guardian, classId: activeClassId, createdAt: new Date().toISOString() });
+        });
+        await batch.commit();
+        chunk.forEach((row) => {
+          students.push({ accessCode: row.accessCode, name: row.name, guardian: row.guardian, attendance: {}, grades: [], notes: [] });
+        });
+      }
+
+      render();
+      if (importStatus) {
+        importStatus.textContent = `Imported ${toImport.length} student${toImport.length === 1 ? '' : 's'}.` + (skipped ? ` Skipped ${skipped} row(s) with no name.` : "");
+      }
+    } catch (err) {
+      console.error(err);
+      if (importStatus) importStatus.textContent = "Could not read that file. Make sure it's a .xlsx, .xls, or .csv file with Name/Guardian columns.";
+    }
+  }
+
+  async function saveStudentEdit(code) {
+    const newName = document.getElementById("editName-" + code).value.trim();
+    const newGuardian = document.getElementById("editGuardian-" + code).value.trim();
+    if (!newName) return;
+    try {
+      await db.collection("students").doc(code).update({ name: newName, guardian: newGuardian });
+      editingStudentCode = null;
+    } catch (err) {
+      console.error(err);
+      alert("Could not save changes. Try again.");
+    }
+  }
+
+  async function deleteStudent(code) {
+    const s = findStudent(code);
+    if (!confirm(`Remove ${s.name} from the class? This deletes their attendance, grades, and notes too. This cannot be undone.`)) return;
+    try {
+      // Delete subcollection docs first, then the student doc itself.
+      const subcollections = ["attendance", "grades", "notes"];
+      for (const sub of subcollections) {
+        const snap = await db.collection("students").doc(code).collection(sub).get();
+        await Promise.all(snap.docs.map((d) => d.ref.delete()));
+      }
+      await db.collection("students").doc(code).delete();
+    } catch (err) {
+      console.error(err);
+      alert("Could not remove this student. Try again.");
+    }
+  }
+
+  // ---- Actions: Attendance ----
+  // IMPORTANT: writes below go to SUBCOLLECTIONS (students/{code}/attendance,
+  // .../grades, .../notes). Firestore's onSnapshot listener on the parent
+  // "students" collection does NOT fire when a subcollection's documents
+  // change — that's a hard platform behavior, not a bug. Without updating
+  // local state here directly, the UI would only catch up on a full reload
+  // (exactly the symptom reported: writes succeed, but nothing updates
+  // live until the app is reopened). So every write below also updates
+  // the in-memory `students` array and calls render() immediately.
+  async function markAttendance(code, status) {
+    try {
+      await db.collection("students").doc(code).collection("attendance").doc(today).set({ status, date: today });
+      const s = findStudent(code);
+      if (s) s.attendance[today] = status;
+      render();
+    } catch (err) {
+      console.error(err);
+      alert("Could not save attendance. Try again.");
+    }
+  }
+
+  // Marks everyone present in one go — teacher then taps exceptions
+  // (late, absent, excused) individually, which is faster than
+  // tapping "present" for every single student every day.
+  async function markAllPresent() {
+    try {
+      await Promise.all(students.map((s) =>
+        db.collection("students").doc(s.accessCode).collection("attendance").doc(today).set({ status: "present", date: today })
+      ));
+      students.forEach((s) => { s.attendance[today] = "present"; });
+      render();
+    } catch (err) {
+      console.error(err);
+      alert("Could not mark everyone present. Try again.");
+    }
+  }
+
+  // ---- Actions: Grades / Assignments ----
+  // Assignment metadata (description, due date) lives once per
+  // assignment in its own "assignments" collection, separate from
+  // the per-student score docs — avoids duplicating the same
+  // description/due-date into every single student's grade record.
+  function toggleAssignmentForm() { document.getElementById("assignmentFormBox").classList.toggle("hidden"); }
+
+  async function addAssignment() {
+    const title = document.getElementById("newAssignmentName").value.trim();
+    const description = document.getElementById("newAssignmentDesc").value.trim();
+    const dueDate = document.getElementById("newAssignmentDue").value;
+    const maxIn = Number((document.getElementById("newAssignmentMax") || {}).value);
+    const wtIn = Number((document.getElementById("newAssignmentWeight") || {}).value);
+    const maxScore = maxIn > 0 ? maxIn : 100, weight = wtIn > 0 ? wtIn : 1;
+    if (!title) return;
+    try {
+      await db.collection("assignments").doc(assignDocId(title)).set({ title, classId: activeClassId, description, dueDate: dueDate || null, maxScore, weight, createdAt: new Date().toISOString() });
+      await Promise.all(students.map((s) => {
+        const exists = s.grades.some((g) => g.assignment === title);
+        if (exists) return Promise.resolve();
+        s.grades.push({ assignment: title, score: null, status: "assigned" }); // local state, so the column shows immediately
+        return db.collection("students").doc(s.accessCode).collection("grades").doc(title).set({ score: null });
+      }));
+      document.getElementById("newAssignmentName").value = "";
+      document.getElementById("newAssignmentDesc").value = "";
+      document.getElementById("newAssignmentDue").value = "";
+      document.getElementById("assignmentFormBox").classList.add("hidden");
+      render(); // assignmentMeta itself updates via the live listener; this render shows the new grade column immediately
+    } catch (err) {
+      console.error(err);
+      alert("Could not create the assignment. Try again.");
+    }
+  }
+
+  // Live, not a one-time load — previously this only ran once at
+  // startup, so an assignment added on another device never showed
+  // its due date/description here until a manual reload.
+  let assignmentMeta = {}; // { title: { description, dueDate } }
+  let unsubscribeAssignmentMeta = null;
+  function attachAssignmentMetaListener() {
+    if (unsubscribeAssignmentMeta) unsubscribeAssignmentMeta();
+    unsubscribeAssignmentMeta = db.collection("assignments").onSnapshot(
+      (snap) => {
+        assignmentMeta = {};
+        snap.forEach((d) => { const v = d.data(); if ((v.classId || "default") === activeClassId) assignmentMeta[v.title || d.id] = v; });
+        if (view === "grades") render();
+      },
+      (err) => { console.error("Assignment metadata listener error:", err); }
+    );
+  }
+
+  // ---- Announcements: a top-level collection, so (unlike subcollection
+  // writes elsewhere in this app) a real onSnapshot listener works
+  // correctly here and updates live with no manual render-after-write
+  // needed — Firestore's listener limitation only applies to subcollections.
+  let announcements = [];
+  let unsubscribeAnnouncements = null;
+  function attachAnnouncementsListener() {
+    if (unsubscribeAnnouncements) unsubscribeAnnouncements();
+    unsubscribeAnnouncements = db.collection("announcements").orderBy("createdAt", "desc").onSnapshot(
+      (snapshot) => {
+        announcements = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+        if (view === "announcements" || view === "dashboard") render();
+      },
+      (err) => { console.error("Announcements listener error:", err); }
+    );
+  }
+
+  async function postAnnouncement() {
+    const titleEl = document.getElementById("newAnnouncementTitle");
+    const bodyEl = document.getElementById("newAnnouncementBody");
+    const title = titleEl.value.trim();
+    const body = bodyEl.value.trim();
+    if (!title && !body) return;
+    try {
+      await db.collection("announcements").add({ title, body, classId: activeClassId, createdAt: new Date().toISOString() });
+      titleEl.value = "";
+      bodyEl.value = "";
+    } catch (err) {
+      console.error(err);
+      alert("Could not post the announcement. Try again.");
+    }
+  }
+
+  async function deleteAnnouncement(id) {
+    if (!confirm("Delete this announcement? This cannot be undone.")) return;
+    try {
+      await db.collection("announcements").doc(id).delete();
+    } catch (err) {
+      console.error(err);
+      alert("Could not delete the announcement. Try again.");
+    }
+  }
+
+  async function setScore(code, assignment, value) {
+    const num = value === "" ? null : Math.max(0, Math.min(assignmentInfo(assignment).max, Number(value)));
+    try {
+      // merge:true — this doc also holds submission status (see
+      // setSubmissionStatus below); without merge, setting a score would
+      // silently wipe out that status field, and vice versa.
+      await db.collection("students").doc(code).collection("grades").doc(assignment).set({ score: num, updatedAt: new Date().toISOString() }, { merge: true });
+      const s = findStudent(code);
+      if (s) {
+        const g = s.grades.find((g) => g.assignment === assignment);
+        if (g) g.score = num;
+        else s.grades.push({ assignment, score: num, status: "assigned" });
+      }
+      // No full re-render here: it would rebuild the score input out from
+      // under the user's cursor. Instead, update just this student's
+      // average badge in place so it stays accurate immediately.
+      if (s) {
+        const badge = document.getElementById("avg-" + code);
+        if (badge) {
+          const scores = s.grades.map((g) => g.score).filter((v) => v !== null && v !== undefined);
+          badge.textContent = gradeAverageLabel(s);
+        }
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Could not save the score. Try again.");
+    }
+  }
+
+  // Submission status per student per assignment: assigned → submitted →
+  // graded → returned. Stored on the same grades/{assignment} doc as the
+  // score, so one doc tracks both — merge:true keeps score and status
+  // independent of each other.
+  const SUBMISSION_STATUSES = ["assigned", "submitted", "graded", "returned"];
+  function statusLabel(status) {
+    const s = status || "assigned";
+    return s.charAt(0).toUpperCase() + s.slice(1);
+  }
+  async function setSubmissionStatus(code, assignment, status) {
+    try {
+      await db.collection("students").doc(code).collection("grades").doc(assignment).set({ status, updatedAt: new Date().toISOString() }, { merge: true });
+      const s = findStudent(code);
+      if (s) {
+        const g = s.grades.find((g) => g.assignment === assignment);
+        if (g) g.status = status;
+        else s.grades.push({ assignment, score: null, status });
+      }
+      render();
+    } catch (err) {
+      console.error(err);
+      alert("Could not update submission status. Try again.");
+    }
+  }
+
+  function getAllAssignments() {
+    const names = new Set();
+    students.forEach((s) => (s.grades || []).forEach((g) => names.add(g.assignment)));
+    return Array.from(names);
+  }
+
+  // ---- Actions: Notes ----
+  async function addNote(code) {
+    const input = document.getElementById("noteInput-" + code);
+    const catSelect = document.getElementById("noteCat-" + code);
+    const text = input.value.trim();
+    if (!text) return;
+    try {
+      const category = catSelect.value;
+      const sharedBox = document.getElementById("noteShared-" + code);
+      const shared = sharedBox ? sharedBox.checked : true;
+      const docRef = await db.collection("students").doc(code).collection("notes").add({ text, date: today, category, shared, createdAt: new Date().toISOString() });
+      const s = findStudent(code);
+      if (s) s.notes.unshift({ id: docRef.id, text, date: today, category, shared });
+      render();
+    } catch (err) {
+      console.error(err);
+      alert("Could not save the note. Try again.");
+    }
+  }
+
+  async function deleteNote(code, noteId) {
+    try {
+      await db.collection("students").doc(code).collection("notes").doc(noteId).delete();
+      const s = findStudent(code);
+      if (s) s.notes = s.notes.filter((n) => n.id !== noteId);
+      render();
+    } catch (err) {
+      console.error(err);
+      alert("Could not delete the note. Try again.");
+    }
+  }
+
+  function setView(v) { view = v; render(); }
+
+  // ---- Render: Dashboard ----
+  function renderDashboard() {
+    const total = students.length;
+    const presentToday = students.filter((s) => s.attendance[today] === "present").length;
+    const totalNotes = students.reduce((sum, s) => sum + s.notes.length, 0);
+    const concernNotes = students.reduce((sum, s) => sum + s.notes.filter((n) => n.category === "concern").length, 0);
+
+    return `
+      <div class="sh"><div class="st">Dashboard <span>${today} · synced live</span></div></div>
+      <div class="srow">
+        <div class="sc">
+          <div class="slabel">Students</div>
+          <div class="sval">${total}</div>
+          <div class="ssub">enrolled in ${escapeHtml(activeClass().name)}</div>
+        </div>
+        <div class="sc">
+          <div class="slabel">Present Today</div>
+          <div class="sval">${presentToday}/${total}</div>
+          <div class="ssub">attendance marked</div>
+        </div>
+        <div class="sc ${concernNotes ? 'w' : ''}">
+          <div class="slabel">Notes on File</div>
+          <div class="sval">${totalNotes}</div>
+          <div class="ssub">${concernNotes} flagged as concerns</div>
+        </div>
+      </div>
+      <div class="tw" style="padding:16px;">
+        <div class="st" style="margin-bottom:10px;">Quick actions</div>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <button class="btn bp" onclick="setView('attendance')">Mark attendance</button>
+          <button class="btn bs" onclick="setView('roster')">Add a student</button>
+          <button class="btn bs" onclick="setView('grades')">Add an assignment</button>
+          <button class="btn bs" onclick="setView('notes')">Add a note</button>
+        </div>
+      </div>
+    `;
+  }
+
+  // ---- Render: Students ----
+  function renderRoster() {
+    const rows = students.map((s) => {
+      const isEditing = editingStudentCode === s.accessCode;
+      if (isEditing) {
+        return `
+          <tr>
+            <td><input id="editName-${s.accessCode}" value="${escapeHtml(s.name)}" style="padding:6px 8px;"></td>
+            <td><input id="editGuardian-${s.accessCode}" value="${escapeHtml(s.guardian || '')}" style="padding:6px 8px;"></td>
+            <td>
+              <button class="btn bp bsm" onclick="saveStudentEdit('${s.accessCode}')">Save</button>
+              <button class="btn bs bsm" onclick="cancelStudentEdit()">Cancel</button>
+            </td>
+          </tr>
+        `;
+      }
+      return `
+        <tr>
+          <td>${escapeHtml(s.name)}</td>
+          <td>${escapeHtml(s.guardian || "—")}</td>
+          <td>
+            <div class="access-code-row">
+              <code>${s.accessCode}</code>
+              <button class="btn bs bsm" onclick="copyCode('${s.accessCode}')">Copy</button>
+              <button class="btn bs bsm" onclick="openProfile('${s.accessCode}')">Profile</button>
+              ${classesList.length > 1 ? `<button class="btn bs bsm" onclick="moveStudent('${s.accessCode}')">Move</button>` : ""}
+              <button class="btn bs bsm" onclick="startStudentEdit('${s.accessCode}')">Edit</button>
+              <button class="btn bd bsm" onclick="deleteStudent('${s.accessCode}')">Remove</button>
+            </div>
+          </td>
+        </tr>
+      `;
+    }).join("");
+
+    return `
+      <div class="sh">
+        <div class="st">Students <span>${students.length} enrolled</span></div>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <input type="file" id="rosterImportInput" accept=".xlsx,.xls,.csv" class="hidden" onchange="handleRosterImport(event)">
+          <button class="btn bs" onclick="triggerRosterImport()">⬆ Import</button>
+          <button class="btn bs" onclick="exportRoster()" ${students.length ? "" : "disabled"}>⬇ Export</button>
+          <button class="btn bp" onclick="toggleAddForm()">+ Add student</button>
+        </div>
+      </div>
+      <div class="sans" id="importStatus" style="font-size:12px; color:var(--text2); margin:-10px 0 16px;"></div>
+
+      <div class="form-box hidden" id="addFormBox">
+        <div class="fg">
+          <div class="fgp"><label>Full name</label><input id="newName" placeholder="e.g. Amara Osei"></div>
+          <div class="fgp"><label>Guardian name</label><input id="newGuardian" placeholder="e.g. F. Osei"></div>
+        </div>
+        <button class="btn bp" style="justify-self:start;" onclick="addStudent()">Save student</button>
+      </div>
+
+      <div class="sans" style="font-size:12px; color:var(--text3); margin-bottom:16px;">Import expects columns named Name and Guardian (.xlsx, .xls, or .csv). Export downloads the current roster with access codes included.</div>
+
+      ${students.length ? `
+        <div class="tw">
+          <table>
+            <thead><tr><th>Name</th><th>Guardian</th><th>Parent access code</th></tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+      ` : `<div class="empty"><div class="eico">🧒</div>No students yet — add your first one above.</div>`}
+    `;
+  }
+
+  // ---- Render: Attendance ----
+  const ATT_SYMBOLS = { present: "✓", absent: "✕", late: "⏰", excused: "✎" };
+  function attClass(status) { return status === "present" || status === "absent" || status === "late" || status === "excused" ? status : "none"; }
+  function attSymbol(status) { return ATT_SYMBOLS[status] || "–"; }
+
+  function renderAttendance() {
+    const presentCount = students.filter((s) => s.attendance[today] === "present").length;
+    const todayRows = students.map((s) => {
+      const status = s.attendance[today];
+      return `
+        <tr>
+          <td>${escapeHtml(s.name)}</td>
+          <td>
+            <button class="btn bsm pill-present ${status === 'present' ? 'active' : ''}" onclick="markAttendance('${s.accessCode}','present')">Present</button>
+            <button class="btn bsm pill-absent ${status === 'absent' ? 'active' : ''}" onclick="markAttendance('${s.accessCode}','absent')">Absent</button>
+            <button class="btn bsm pill-late ${status === 'late' ? 'active' : ''}" onclick="markAttendance('${s.accessCode}','late')">Late</button>
+            <button class="btn bsm pill-excused ${status === 'excused' ? 'active' : ''}" onclick="markAttendance('${s.accessCode}','excused')">Excused</button>
+          </td>
+        </tr>
+      `;
+    }).join("");
+
+    const weekRows = students.map((s) => {
+      const cells = weekDates.map((d) => {
+        const status = s.attendance[d];
+        return `<div><div class="att-cell ${attClass(status)}">${attSymbol(status)}</div></div>`;
+      }).join("");
+      return `<div>${escapeHtml(s.name)}</div>${cells}`;
+    }).join("");
+
+    const weekHeadCells = weekDayLabels.map((label, i) => `<div class="week-head">${label}<br><span style="font-weight:400;">${weekDates[i].slice(5)}</span></div>`).join("");
+
+    return `
+      <div class="sh">
+        <div class="st">Attendance <span>${today}</span></div>
+        <button class="btn bp" onclick="markAllPresent()">✓ Mark all present</button>
+      </div>
+      <p class="sans" style="color:var(--text2); font-size:12px; margin:-8px 0 16px;">Mark everyone present in one tap, then adjust exceptions (late, absent, excused) individually.</p>
+      <div class="srow" style="grid-template-columns:repeat(auto-fit,minmax(140px,1fr));">
+        <div class="sc"><div class="slabel">Present</div><div class="sval">${presentCount}</div></div>
+        <div class="sc w"><div class="slabel">Total</div><div class="sval">${students.length}</div></div>
+      </div>
+
+      ${students.length ? `
+        <div class="tw"><table><thead><tr><th>Name</th><th>Today</th></tr></thead><tbody>${todayRows}</tbody></table></div>
+
+        <div class="st" style="margin:22px 0 10px;">This week</div>
+        <div class="week-grid">
+          <div class="week-head">Student</div>${weekHeadCells}
+          ${weekRows}
+        </div>
+      ` : `<div class="empty"><div class="eico">📋</div>Add students first.</div>`}
+    `;
+  }
+
+  // ---- Render: Grades ----
+  function renderGrades() {
+    const assignments = getAllAssignments();
+    const rows = students.map((s) => {
+      const cells = assignments.map((a) => {
+        const g = s.grades.find((g) => g.assignment === a);
+        const val = g && g.score !== null && g.score !== undefined ? g.score : "";
+        return `<td><input type="number" min="0" max="${assignmentInfo(a).max}" value="${val}" style="width:70px; padding:6px 8px;" onchange="setScore('${s.accessCode}','${a.replace(/'/g, "\\'")}', this.value)"></td>`;
+      }).join("");
+      const scores = s.grades.map((g) => g.score).filter((v) => v !== null && v !== undefined);
+      return `<tr><td>${escapeHtml(s.name)}</td>${cells}<td><span class="badge bok" id="avg-${s.accessCode}">${gradeAverageLabel(s)}</span></td></tr>`;
+    }).join("");
+    const headCells = assignments.map((a) => `<th>${escapeHtml(a)}</th>`).join("");
+
+    const assignmentCards = assignments.map((a, ai) => {
+      const meta = assignmentMeta[a] || {};
+      const due = meta.dueDate ? `Due ${meta.dueDate}` : "No due date set";
+      const isActive = activeSubmissionAssignment === a;
+      return `
+        <div class="note-card" style="margin-bottom:8px;">
+          <div style="display:flex; justify-content:space-between; align-items:baseline; flex-wrap:wrap; gap:6px;">
+            <div style="font-weight:600;">${escapeHtml(a)}</div>
+            <span class="badge bgen">${escapeHtml(due)}</span>
+          </div>
+          ${meta.description ? `<div style="color:var(--text2); font-size:13px; margin-top:6px;">${escapeHtml(meta.description)}</div>` : ""}
+          <button class="btn ${isActive ? 'bp' : 'bs'} bsm" style="margin-top:10px;" onclick="toggleSubmissionTracker('${a.replace(/'/g, "\\'")}')">${isActive ? 'Hide' : 'Track'} submissions</button>
+          <button class="btn bs bsm" style="margin-top:10px;" onclick="editAssignment(${ai})">Edit</button>
+          <button class="btn bd bsm" style="margin-top:10px;" onclick="deleteAssignment(${ai})">Delete</button>
+        </div>
+      `;
+    }).join("");
+
+    let submissionTrackerHtml = "";
+    if (activeSubmissionAssignment && assignments.includes(activeSubmissionAssignment)) {
+      const a = activeSubmissionAssignment;
+      const subRows = students.map((s) => {
+        const g = s.grades.find((g) => g.assignment === a);
+        const status = (g && g.status) || "assigned";
+        const options = SUBMISSION_STATUSES.map((st) => `<option value="${st}" ${st === status ? "selected" : ""}>${statusLabel(st)}</option>`).join("");
+        return `
+          <tr>
+            <td>${escapeHtml(s.name)}</td>
+            <td><span class="badge b-${status}">${statusLabel(status)}</span></td>
+            <td><select onchange="setSubmissionStatus('${s.accessCode}','${a.replace(/'/g, "\\'")}', this.value)">${options}</select></td>
+          </tr>
+        `;
+      }).join("");
+      submissionTrackerHtml = `
+        <div class="st" style="margin:22px 0 10px;">Submissions — ${escapeHtml(a)}</div>
+        ${students.length ? `
+          <div class="tw"><table><thead><tr><th>Name</th><th>Status</th><th>Update</th></tr></thead><tbody>${subRows}</tbody></table></div>
+        ` : `<div class="empty">Add students first.</div>`}
+      `;
+    }
+
+    return `
+      <div class="sh">
+        <div class="st">Grades</div>
+        <button class="btn bp" onclick="toggleAssignmentForm()">+ New assignment</button>
+      </div>
+
+      <div class="form-box hidden" id="assignmentFormBox">
+        <div class="fg">
+          <div class="fgp full"><label>Assignment name</label><input id="newAssignmentName" placeholder="e.g. Spelling Test 3" onkeydown="if(event.key==='Enter') addAssignment()"></div>
+        </div>
+        <div class="fg">
+          <div class="fgp"><label>Due date (optional)</label><input type="date" id="newAssignmentDue"></div>
+          <div class="fgp"><label>Description (optional)</label><input id="newAssignmentDesc" placeholder="e.g. Covers chapters 3-4"></div>
+          <div class="fgp"><label>Out of</label><input type="number" id="newAssignmentMax" value="100" min="1"></div>
+          <div class="fgp"><label>Weight (1 = normal)</label><input type="number" id="newAssignmentWeight" value="1" min="0.1" step="0.1"></div>
+        </div>
+        <button class="btn bp" style="justify-self:start;" onclick="addAssignment()">Add assignment</button>
+      </div>
+
+      ${assignments.length ? `<div class="st" style="margin-bottom:10px;">Assignments</div>${assignmentCards}` : ""}
+
+      ${students.length && assignments.length ? `
+        <div class="st" style="margin:22px 0 10px;">Scores</div>
+        <div class="tw"><table><thead><tr><th>Name</th>${headCells}<th>Average</th></tr></thead><tbody>${rows}</tbody></table></div>
+      ` : students.length ? `<div class="empty"><div class="eico">📝</div>No assignments yet — add one above.</div>` : `<div class="empty"><div class="eico">📊</div>Add students first.</div>`}
+
+      ${submissionTrackerHtml}
+    `;
+  }
+
+  async function toggleNoteShared(code, noteId) {
+    const s = findStudent(code);
+    const n = s && s.notes.find((x) => x.id === noteId);
+    if (!n) return;
+    const next = n.shared === false; // currently private -> share; otherwise hide
+    try {
+      await db.collection("students").doc(code).collection("notes").doc(noteId).set({ shared: next }, { merge: true });
+      n.shared = next;
+      render();
+    } catch (err) {
+      console.error(err);
+      alert("Could not change note visibility. Try again.");
+    }
+  }
+
+  async function editAssignment(i) {
+    const old = getAllAssignments()[i];
+    if (!old) return;
+    const meta = assignmentMeta[old] || {};
+    const title = (prompt("Assignment name:", old) || "").trim();
+    if (!title) return;
+    const description = prompt("Description (optional):", meta.description || "");
+    if (description === null) return;
+    const due = prompt("Due date (YYYY-MM-DD, or leave blank for none):", meta.dueDate || "");
+    if (due === null) return;
+    const dueClean = due.trim();
+    const curInfo = assignmentInfo(old);
+    const maxIn = prompt("Out of (maximum score):", String(curInfo.max)); if (maxIn === null) return;
+    const wIn = prompt("Weight (1 = normal):", String(curInfo.weight)); if (wIn === null) return;
+    const maxScore = Number(maxIn) > 0 ? Number(maxIn) : 100, weight = Number(wIn) > 0 ? Number(wIn) : 1;
+    if (dueClean && !/^\d{4}-\d{2}-\d{2}$/.test(dueClean)) { alert("Use the format YYYY-MM-DD for the due date."); return; }
+    if (title !== old && getAllAssignments().indexOf(title) !== -1) { alert("An assignment with that name already exists."); return; }
+    try {
+      const batch = db.batch();
+      batch.set(db.collection("assignments").doc(assignDocId(title)), { title, classId: activeClassId, description: description.trim(), dueDate: dueClean || null, maxScore, weight, createdAt: meta.createdAt || new Date().toISOString() });
+      if (title !== old) {
+        batch.delete(db.collection("assignments").doc(assignDocId(old)));
+        students.forEach((s) => {
+          const g = s.grades.find((x) => x.assignment === old);
+          if (!g) return;
+          const col = db.collection("students").doc(s.accessCode).collection("grades");
+          batch.set(col.doc(title), { score: g.score === undefined ? null : g.score, status: g.status || "assigned" });
+          batch.delete(col.doc(old));
+        });
+      }
+      await batch.commit();
+      if (title !== old) {
+        students.forEach((s) => { const g = s.grades.find((x) => x.assignment === old); if (g) g.assignment = title; });
+        if (activeSubmissionAssignment === old) activeSubmissionAssignment = title;
+      }
+      render();
+    } catch (err) {
+      console.error(err);
+      alert("Could not save changes. Try again.");
+    }
+  }
+
+  async function deleteAssignment(i) {
+    const name = getAllAssignments()[i];
+    if (!name) return;
+    if (!confirm('Delete "' + name + '" and every student\'s score for it? This cannot be undone.')) return;
+    try {
+      const batch = db.batch();
+      batch.delete(db.collection("assignments").doc(assignDocId(name)));
+      students.forEach((s) => batch.delete(db.collection("students").doc(s.accessCode).collection("grades").doc(name)));
+      await batch.commit();
+      students.forEach((s) => { s.grades = s.grades.filter((g) => g.assignment !== name); });
+      if (activeSubmissionAssignment === name) activeSubmissionAssignment = null;
+      render();
+    } catch (err) {
+      console.error(err);
+      alert("Could not delete the assignment. Try again.");
+    }
+  }
+
+  function assignDocId(t) { return activeClassId === "default" ? t : activeClassId + "__" + t; }
+  function activeClass() { return classesList.find((c) => c.id === activeClassId) || classesList[0] || { id: "default", name: "Class 5A" }; }
+  function assignmentInfo(t) {
+    const m = assignmentMeta[t] || {};
+    return { max: Number(m.maxScore) > 0 ? Number(m.maxScore) : 100, weight: Number(m.weight) > 0 ? Number(m.weight) : 1 };
+  }
+  function gradeScale() { const sc = activeClass().scale || {}; return { A: sc.A || 90, B: sc.B || 80, C: sc.C || 70, D: sc.D || 60 }; }
+  function letterFor(p) { const sc = gradeScale(); return p >= sc.A ? "A" : p >= sc.B ? "B" : p >= sc.C ? "C" : p >= sc.D ? "D" : "F"; }
+  // Weighted average of each score as a percentage of its own maximum.
+  function gradeAverage(s) {
+    let sum = 0, w = 0;
+    s.grades.forEach((g) => {
+      if (g.score === null || g.score === undefined) return;
+      const i = assignmentInfo(g.assignment);
+      sum += (g.score / i.max * 100) * i.weight; w += i.weight;
+    });
+    return w ? Math.round(sum / w) : null;
+  }
+  function gradeAverageLabel(s) { const a = gradeAverage(s); return a === null ? "—" : a + "% (" + letterFor(a) + ")"; }
+
+  let unsubscribeClasses = null;
+  function attachClassesListener() {
+    if (unsubscribeClasses) unsubscribeClasses();
+    unsubscribeClasses = db.collection("classes").onSnapshot((snap) => {
+      const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      if (!list.some((c) => c.id === "default")) list.unshift({ id: "default", name: "Class 5A" });
+      classesList = list;
+      if (!classesList.some((c) => c.id === activeClassId)) activeClassId = "default";
+      updateClassUI(); render();
+    }, (err) => console.error("Classes listener error:", err));
+  }
+  function updateClassUI() {
+    const sel = document.getElementById("classSelect");
+    if (sel) {
+      sel.innerHTML = classesList.map((c) => `<option value="${c.id}">${escapeHtml(c.name || "Class")}</option>`).join("") + '<option value="__new__">＋ New class…</option>';
+      sel.value = activeClassId;
+    }
+    const logo = document.querySelector(".logo-text");
+    if (logo) logo.innerHTML = escapeHtml(activeClass().name || "Class") + "<br>Sync";
+    const lt = document.getElementById("loginTitle");
+    if (lt) lt.textContent = activeClass().name || "Class";
+  }
+  async function switchClass(v) {
+    if (v === "__new__") {
+      const name = (prompt("Name for the new class:") || "").trim();
+      if (!name) { updateClassUI(); return; }
+      v = randomId().slice(0, 8);
+      try { await db.collection("classes").doc(v).set({ name, subject: "", term: "", createdAt: new Date().toISOString() }); }
+      catch (err) { console.error(err); alert("Could not create the class. Try again."); updateClassUI(); return; }
+      classesList.push({ id: v, name });
+    }
+    activeClassId = v;
+    localStorage.setItem("classroom_active_class", v);
+    activeSubmissionAssignment = null; students = []; assignmentMeta = {};
+    updateClassUI();
+    attachAssignmentMetaListener();
+    if (lastStudentsSnapshot) handleSnapshot(lastStudentsSnapshot); else render();
+  }
+  async function saveClassSettings() {
+    const val = (id) => document.getElementById(id).value.trim();
+    const num = (id, d) => { const n = Number(val(id)); return n >= 0 && n <= 100 ? n : d; };
+    try {
+      await db.collection("classes").doc(activeClassId).set({
+        name: val("cs-name") || "Class", subject: val("cs-subject"), term: val("cs-term"),
+        scale: { A: num("cs-A", 90), B: num("cs-B", 80), C: num("cs-C", 70), D: num("cs-D", 60) }
+      }, { merge: true });
+      alert("Class settings saved.");
+    } catch (err) { console.error(err); alert("Could not save class settings. Try again."); }
+  }
+
+  // ---- Calendar: assignment due dates + custom class events ----
+  function attachEventsListener() {
+    if (unsubscribeEvents) unsubscribeEvents();
+    unsubscribeEvents = db.collection("events").onSnapshot((snap) => {
+      calendarEvents = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      if (view === "calendar") render();
+    }, (err) => console.error("Events listener error:", err));
+  }
+  async function addCalendarEvent() {
+    const title = document.getElementById("newEventTitle").value.trim();
+    const date = document.getElementById("newEventDate").value;
+    if (!title || !date) { alert("Enter both a title and a date."); return; }
+    try { await db.collection("events").add({ title, date, classId: activeClassId, createdAt: new Date().toISOString() }); }
+    catch (err) { console.error(err); alert("Could not add the event. Try again."); }
+  }
+  async function deleteCalendarEvent(id) {
+    if (!confirm("Delete this event?")) return;
+    try { await db.collection("events").doc(id).delete(); }
+    catch (err) { console.error(err); alert("Could not delete the event. Try again."); }
+  }
+  function shiftMonth(n) { calMonth = new Date(calMonth.getFullYear(), calMonth.getMonth() + n, 1); render(); }
+  function renderCalendar() {
+    if (!calMonth) calMonth = new Date(todayDate.getFullYear(), todayDate.getMonth(), 1);
+    const y = calMonth.getFullYear(), m = calMonth.getMonth();
+    const pad = (n) => String(n).padStart(2, "0");
+    const items = [];
+    Object.keys(assignmentMeta).forEach((t) => { if (assignmentMeta[t].dueDate) items.push({ date: assignmentMeta[t].dueDate, title: t, type: "due" }); });
+    calendarEvents.filter((e) => (e.classId || "default") === activeClassId).forEach((e) => items.push({ date: e.date, title: e.title, type: "event", id: e.id }));
+    let cells = "";
+    for (let i = 0; i < new Date(y, m, 1).getDay(); i++) cells += "<div></div>";
+    const days = new Date(y, m + 1, 0).getDate();
+    for (let d = 1; d <= days; d++) {
+      const ds = y + "-" + pad(m + 1) + "-" + pad(d);
+      const its = items.filter((x) => x.date === ds);
+      const lines = its.slice(0, 2).map((x) => `<div style="font-size:9px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:${x.type === "due" ? "var(--warn)" : "var(--accent2)"};">${escapeHtml(x.title)}</div>`).join("");
+      cells += `<div style="min-height:46px; border:1px solid ${ds === today ? "var(--accent)" : "var(--border)"}; border-radius:6px; padding:4px; font-size:11px; overflow:hidden;"><div>${d}</div>${lines}${its.length > 2 ? `<div style="font-size:9px; color:var(--text3);">+${its.length - 2} more</div>` : ""}</div>`;
+    }
+    const prefix = y + "-" + pad(m + 1);
+    const list = items.filter((x) => x.date.indexOf(prefix) === 0).sort((a, b) => (a.date < b.date ? -1 : 1)).map((x) => `
+      <tr><td>${x.date}</td><td>${escapeHtml(x.title)}</td><td><span class="badge ${x.type === "due" ? "b-graded" : "b-submitted"}">${x.type === "due" ? "Due" : "Event"}</span></td>
+      <td>${x.type === "event" ? `<button class="btn bd bsm" onclick="deleteCalendarEvent('${x.id}')">Delete</button>` : ""}</td></tr>`).join("");
+    const label = calMonth.toLocaleString(undefined, { month: "long", year: "numeric" });
+    return `
+      <div class="sh"><div class="st">Calendar <span>${escapeHtml(activeClass().name || "")}</span></div>
+        <div style="display:flex; gap:8px; align-items:center;"><button class="btn bs bsm" onclick="shiftMonth(-1)">‹</button><span class="sans" style="min-width:120px; text-align:center;">${label}</span><button class="btn bs bsm" onclick="shiftMonth(1)">›</button></div>
+      </div>
+      <div class="form-box"><div class="fg">
+        <div class="fgp"><label>Event title</label><input id="newEventTitle" placeholder="e.g. Field trip"></div>
+        <div class="fgp"><label>Date</label><input type="date" id="newEventDate"></div>
+      </div><button class="btn bp" style="justify-self:start;" onclick="addCalendarEvent()">Add event</button></div>
+      <div style="display:grid; grid-template-columns:repeat(7,1fr); gap:4px; margin-bottom:6px; text-align:center; font-size:10px; color:var(--text2);">${["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].map((x) => `<div>${x}</div>`).join("")}</div>
+      <div style="display:grid; grid-template-columns:repeat(7,1fr); gap:4px; margin-bottom:20px;">${cells}</div>
+      <div class="st" style="margin-bottom:10px;">This month</div>
+      ${list ? `<div class="tw"><table><thead><tr><th>Date</th><th>What</th><th>Type</th><th></th></tr></thead><tbody>${list}</tbody></table></div>` : `<div class="empty">Nothing scheduled this month. Assignment due dates appear here automatically.</div>`}
+    `;
+  }
+
+  // ---- Excel exports (grades, attendance) ----
+  function saveSheet(rows, sheetName, label, fmt) {
+    if (!rows.length) { alert("Nothing to export yet."); return; }
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), sheetName);
+    const cls = (activeClass().name || "class").replace(/[^a-z0-9]+/gi, "-").toLowerCase();
+    XLSX.writeFile(wb, cls + "-" + label + "-" + today + "." + (fmt === "csv" ? "csv" : "xlsx"));
+  }
+  function exportGrades(fmt) {
+    ensureXLSX(() => {
+      const names = getAllAssignments();
+      saveSheet(students.map((s) => {
+        const r = { Name: s.name };
+        names.forEach((a) => {
+          const g = s.grades.find((x) => x.assignment === a);
+          r[a + " (out of " + assignmentInfo(a).max + ")"] = g && g.score !== null && g.score !== undefined ? g.score : "";
+        });
+        const avg = gradeAverage(s);
+        r["Average %"] = avg === null ? "" : avg;
+        r["Letter"] = avg === null ? "" : letterFor(avg);
+        return r;
+      }), "Grades", "grades", fmt);
+    }, () => alert("Could not load the Excel library. Check your connection and try again."));
+  }
+  function exportAttendance(fmt) {
+    ensureXLSX(() => {
+      const dateSet = {};
+      students.forEach((s) => Object.keys(s.attendance).forEach((d) => { dateSet[d] = true; }));
+      const dates = Object.keys(dateSet).sort();
+      saveSheet(students.map((s) => {
+        const r = { Name: s.name };
+        dates.forEach((d) => { r[d] = s.attendance[d] || ""; });
+        const rate = attendanceRate(s);
+        r["Attendance %"] = rate === null ? "" : rate;
+        return r;
+      }), "Attendance", "attendance", fmt);
+    }, () => alert("Could not load the Excel library. Check your connection and try again."));
+  }
+
+  // ---- Printable progress report (browser print dialog -> Save as PDF) ----
+  function printReport(code) {
+    const s = findStudent(code);
+    if (!s) return;
+    const rate = attendanceRate(s);
+    const counts = { present: 0, late: 0, absent: 0, excused: 0 };
+    Object.keys(s.attendance).forEach((d) => { if (counts[s.attendance[d]] !== undefined) counts[s.attendance[d]]++; });
+    const rows = s.grades.map((g) => `<tr><td>${escapeHtml(g.assignment)}</td><td>${g.score === null || g.score === undefined ? "—" : g.score + " / " + assignmentInfo(g.assignment).max}</td><td>${statusLabel(g.status)}</td></tr>`).join("");
+    const notes = s.notes.filter((n) => n.shared !== false).sort((a, b) => (a.date < b.date ? 1 : -1)).map((n) => `<li>${n.date} — ${escapeHtml(n.text)}</li>`).join("");
+    if (!document.getElementById("printStyle")) {
+      const st = document.createElement("style");
+      st.id = "printStyle";
+      st.textContent = "@media screen{#printArea{display:none}} @media print{body{background:#fff!important} body>*:not(#printArea){display:none!important} #printArea{display:block;color:#000;font-family:Arial,sans-serif;padding:24px} #printArea table{width:100%;border-collapse:collapse;margin:8px 0 16px} #printArea th,#printArea td{border:1px solid #999;padding:6px;text-align:left;font-size:13px}}";
+      document.head.appendChild(st);
+    }
+    let area = document.getElementById("printArea");
+    if (!area) { area = document.createElement("div"); area.id = "printArea"; document.body.appendChild(area); }
+    const cls = activeClass();
+    area.innerHTML = `
+      <h2 style="margin:0;">${escapeHtml(cls.name || "Class")} — Progress report</h2>
+      <div style="color:#555; margin-bottom:12px;">${escapeHtml([cls.subject, cls.term].filter(Boolean).join(" · "))} ${today}</div>
+      <h3 style="margin:0;">${escapeHtml(s.name)}</h3>
+      <div>Guardian: ${escapeHtml(s.guardian || "—")}</div>
+      <p><b>Attendance:</b> ${rate === null ? "—" : rate + "%"} (${counts.present} present, ${counts.late} late, ${counts.absent} absent, ${counts.excused} excused)<br>
+      <b>Overall average:</b> ${gradeAverageLabel(s)}</p>
+      <h4 style="margin-bottom:0;">Grades</h4>
+      ${rows ? `<table><thead><tr><th>Assignment</th><th>Score</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table>` : "<p>No assignments yet.</p>"}
+      <h4 style="margin-bottom:4px;">Teacher notes</h4>
+      ${notes ? `<ul>${notes}</ul>` : "<p>No notes shared.</p>"}`;
+    window.print();
+  }
+
+  // ---- Resources library: share links (free) + small files kept in Firestore (free, under 700 KB) ----
+  function attachResourcesListener() {
+    if (unsubscribeResources) unsubscribeResources();
+    unsubscribeResources = db.collection("resources").onSnapshot((snap) => {
+      resources = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      if (view === "resources") render();
+    }, (err) => console.error("Resources listener error:", err));
+  }
+  function cleanUrl(u) {
+    u = (u || "").trim();
+    if (!u) return "";
+    if (!/^https?:\/\//i.test(u)) u = "https://" + u;
+    try { const x = new URL(u); return /^https?:$/.test(x.protocol) && x.hostname.indexOf(".") > 0 ? x.href : ""; } catch (e) { return ""; }
+  }
+  function linkSource(u) {
+    const h = ((u || "").match(/^https?:\/\/([^\/]+)/i) || [])[1] || "";
+    if (/drive\.google|docs\.google/.test(h)) return "Google Drive";
+    if (/youtube\.com|youtu\.be/.test(h)) return "YouTube";
+    if (/onedrive|1drv|sharepoint/.test(h)) return "OneDrive";
+    if (/dropbox/.test(h)) return "Dropbox";
+    return h.replace(/^www\./, "");
+  }
+  async function saveResource() {
+    const g = (id) => document.getElementById(id);
+    const title = g("rs-title").value.trim(), urlIn = g("rs-url").value.trim(), file = g("rs-file").files[0];
+    if (!title) { alert("Enter a title."); return; }
+    const url = cleanUrl(urlIn);
+    if (urlIn && !url) { alert("That doesn't look like a valid web link."); return; }
+    if (!url && !file) { alert("Add a link, or choose a small file."); return; }
+    if (file && file.size > 700 * 1024) { alert("Files must be under 700 KB. For larger files, upload to Google Drive and paste the share link instead."); return; }
+    const ai = g("rs-assign").value;
+    try {
+      const rec = { title, url, category: g("rs-cat").value, note: g("rs-note").value.trim(), assignment: ai === "" ? "" : (getAllAssignments()[Number(ai)] || ""), teacherOnly: g("rs-private").checked, classId: activeClassId, createdAt: new Date().toISOString() };
+      if (file) {
+        const data = await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(file); });
+        const ref = await db.collection("resourceFiles").add({ data });
+        rec.fileId = ref.id; rec.fileName = file.name;
+      }
+      await db.collection("resources").add(rec);
+      ["rs-title", "rs-url", "rs-note"].forEach((id) => { g(id).value = ""; });
+      g("rs-file").value = "";
+    } catch (err) { console.error(err); alert("Could not save the resource. Try again."); }
+  }
+  async function editResource(id) {
+    const r = resources.find((x) => x.id === id);
+    if (!r) return;
+    const title = prompt("Title:", r.title || "");
+    if (title === null || !title.trim()) return;
+    let url = r.url || "";
+    if (url || !r.fileId) {
+      const u = prompt("Link:", url);
+      if (u === null) return;
+      url = u.trim() ? cleanUrl(u) : "";
+      if (u.trim() && !url) { alert("That doesn't look like a valid web link."); return; }
+    }
+    const note = prompt("Note (optional):", r.note || "");
+    if (note === null) return;
+    if (!url && !r.fileId) { alert("A resource needs a link or a file."); return; }
+    try { await db.collection("resources").doc(id).set({ title: title.trim(), url, note: note.trim() }, { merge: true }); }
+    catch (err) { console.error(err); alert("Could not save changes. Try again."); }
+  }
+  async function toggleResourcePrivate(id) {
+    const r = resources.find((x) => x.id === id);
+    if (!r) return;
+    try { await db.collection("resources").doc(id).set({ teacherOnly: r.teacherOnly !== true }, { merge: true }); }
+    catch (err) { console.error(err); alert("Could not change visibility. Try again."); }
+  }
+  async function deleteResource(id) {
+    const r = resources.find((x) => x.id === id);
+    if (!r || !confirm('Delete "' + r.title + '"? This cannot be undone.')) return;
+    try {
+      if (r.fileId) await db.collection("resourceFiles").doc(r.fileId).delete();
+      await db.collection("resources").doc(id).delete();
+    } catch (err) { console.error(err); alert("Could not delete the resource. Try again."); }
+  }
+  function openResLink(id) { const r = resources.find((x) => x.id === id); if (r && r.url) window.open(r.url, "_blank", "noopener"); }
+  async function openResFile(id) {
+    const r = resources.find((x) => x.id === id);
+    if (!r || !r.fileId) return;
+    try {
+      const d = await db.collection("resourceFiles").doc(r.fileId).get();
+      if (!d.exists) { alert("File not found."); return; }
+      const dataUrl = d.data().data;
+      const bin = atob(dataUrl.split(",")[1]), mime = dataUrl.slice(5, dataUrl.indexOf(";"));
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(new Blob([bytes], { type: mime }));
+      a.download = r.fileName || "file";
+      document.body.appendChild(a); a.click(); a.remove();
+    } catch (err) { console.error(err); alert("Could not open the file."); }
+  }
+  function renderResources() {
+    const list = resources.filter((x) => (x.classId || "default") === activeClassId).sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+    const assignOpts = '<option value="">Not attached to an assignment</option>' + getAllAssignments().map((a, i) => `<option value="${i}">${escapeHtml(a)}</option>`).join("");
+    const card = (r) => `
+      <div class="note-card">
+        <div style="display:flex; justify-content:space-between; gap:8px; flex-wrap:wrap; margin-bottom:4px;">
+          <div style="font-weight:600;">${escapeHtml(r.title)}</div>
+          <div>${r.teacherOnly ? '<span class="badge b-assigned">Teacher only</span>' : ''}</div>
+        </div>
+        ${r.note ? `<div style="color:var(--text2); font-size:13px; margin-bottom:6px;">${escapeHtml(r.note)}</div>` : ""}
+        <div class="note-date" style="margin-bottom:8px;">${r.url ? escapeHtml(linkSource(r.url)) : ""}${r.url && r.fileId ? " · " : ""}${r.fileId ? "File: " + escapeHtml(r.fileName || "attached") : ""}${r.assignment ? " · for " + escapeHtml(r.assignment) : ""}</div>
+        <div style="display:flex; gap:6px; flex-wrap:wrap;">
+          ${r.url ? `<button class="btn bp bsm" onclick="openResLink('${r.id}')">Open link</button>` : ""}
+          ${r.fileId ? `<button class="btn bp bsm" onclick="openResFile('${r.id}')">Download file</button>` : ""}
+          <button class="btn bs bsm" onclick="toggleResourcePrivate('${r.id}')">${r.teacherOnly ? "Show to parents" : "Hide from parents"}</button>
+          <button class="btn bs bsm" onclick="editResource('${r.id}')">Edit</button>
+          <button class="btn bd bsm" onclick="deleteResource('${r.id}')">Delete</button>
+        </div>
+      </div>`;
+    const groups = ["Worksheet", "Video", "Reading", "Other"].map((c) => {
+      const items = list.filter((r) => (r.category || "Other") === c);
+      return items.length ? `<div class="st" style="margin:18px 0 8px;">${c === "Other" ? "Other" : c + "s"}</div>${items.map(card).join("")}` : "";
+    }).join("");
+    return `
+      <div class="sh"><div class="st">Resources <span>${escapeHtml(activeClass().name || "")}</span></div></div>
+      <div class="form-box">
+        <div class="fg">
+          <div class="fgp"><label>Title</label><input id="rs-title" placeholder="e.g. Fractions practice sheet"></div>
+          <div class="fgp"><label>Category</label><select id="rs-cat"><option>Worksheet</option><option>Video</option><option>Reading</option><option>Other</option></select></div>
+          <div class="fgp full"><label>Link (Google Drive, YouTube, OneDrive…)</label><input id="rs-url" placeholder="https://"></div>
+          <div class="fgp full"><label>Or a small file (under 700 KB)</label><input type="file" id="rs-file" accept=".pdf,.png,.jpg,.jpeg,.doc,.docx,.txt,.xlsx,.pptx"></div>
+          <div class="fgp"><label>Note (optional)</label><input id="rs-note" placeholder="e.g. Do pages 1-2"></div>
+          <div class="fgp"><label>Attach to assignment</label><select id="rs-assign">${assignOpts}</select></div>
+        </div>
+        <label class="sans" style="display:flex; align-items:center; gap:6px; font-size:12px; margin:0;"><input type="checkbox" id="rs-private" style="width:auto;"> Teacher only (hide from parents)</label>
+        <div class="sans" style="font-size:12px; color:var(--text3);">Google Drive links must be set to "Anyone with the link can view", or parents will see an access-request screen. Hiding from parents only hides it in the app; it isn't secure while the database rules are open.</div>
+        <button class="btn bp" style="justify-self:start;" onclick="saveResource()">Add resource</button>
+      </div>
+      ${groups || `<div class="empty"><div class="eico">📎</div>No resources yet.</div>`}
+    `;
+  }
+
+  async function moveStudent(code) {
+    const s = findStudent(code);
+    if (!s) return;
+    const others = classesList.filter((c) => c.id !== activeClassId);
+    if (!others.length) { alert("Create another class first."); return; }
+    const pick = prompt("Move " + s.name + " to which class?\n" + others.map((c, i) => (i + 1) + ") " + (c.name || "Class")).join("\n") + "\nEnter a number:");
+    if (pick === null) return;
+    const target = others[Number(pick) - 1];
+    if (!target) { alert("Please enter one of the numbers listed."); return; }
+    try { await db.collection("students").doc(code).set({ classId: target.id }, { merge: true }); }
+    catch (err) { console.error(err); alert("Could not move the student. Try again."); }
+  }
+
+  function openProfile(code) { profileCode = code; setView("profile"); }
+
+  // Late counts as present (the child attended); excused days are left
+  // out of the rate entirely. Change the two rules here to change it everywhere.
+  function attendanceRate(s) {
+    const vals = Object.keys(s.attendance || {}).map((d) => s.attendance[d]).filter((v) => v !== "excused");
+    if (!vals.length) return null;
+    const attended = vals.filter((v) => v === "present" || v === "late").length;
+    return Math.round((attended / vals.length) * 100);
+  }
+
+  function renderProfile() {
+    const s = findStudent(profileCode);
+    const back = `<button class="btn bs" onclick="setView('roster')">&larr; Back to students</button>`;
+    if (!s) return `<div class="empty">Student not found.</div>${back}`;
+    const rate = attendanceRate(s);
+    const counts = { present: 0, absent: 0, late: 0, excused: 0 };
+    Object.keys(s.attendance).forEach((d) => { if (counts[s.attendance[d]] !== undefined) counts[s.attendance[d]]++; });
+    const scores = s.grades.map((g) => g.score).filter((v) => v !== null && v !== undefined);
+    const gradeRows = s.grades.map((g) => `<tr><td>${escapeHtml(g.assignment)}</td><td>${g.score === null || g.score === undefined ? "—" : g.score}</td><td><span class="badge b-${g.status || 'assigned'}">${statusLabel(g.status)}</span></td></tr>`).join("");
+    const notes = [...s.notes].sort((a, b) => (a.date < b.date ? 1 : -1)).map((n) => `
+      <div class="note-line"><span class="note-date">${n.date}</span><span class="badge ${catClass(n.category || 'general')}">${catLabel(n.category || 'general')}</span><span style="flex:1;">${escapeHtml(n.text)}</span>${n.shared === false ? '<span class="badge b-assigned">Private</span>' : ''}</div>`).join("");
+    return `
+      ${back}
+      <div class="sh" style="margin-top:14px;"><div class="st">${escapeHtml(s.name)} <span>Guardian: ${escapeHtml(s.guardian || "—")}</span></div></div>
+      <div style="margin-bottom:14px;"><button class="btn bp bsm" onclick="printReport('${s.accessCode}')">Print / save as PDF</button></div>
+      <div class="srow">
+        <div class="sc"><div class="slabel">Attendance</div><div class="sval">${rate === null ? "—" : rate + "%"}</div><div class="ssub">${counts.present} present · ${counts.late} late · ${counts.absent} absent · ${counts.excused} excused</div></div>
+        <div class="sc"><div class="slabel">Average</div><div class="sval">${gradeAverageLabel(s)}</div><div class="ssub">${scores.length} scored assignment${scores.length === 1 ? "" : "s"}</div></div>
+      </div>
+      <div class="st" style="margin:6px 0 10px;">Grades</div>
+      ${gradeRows ? `<div class="tw"><table><thead><tr><th>Assignment</th><th>Score</th><th>Status</th></tr></thead><tbody>${gradeRows}</tbody></table></div>` : `<div class="empty">No assignments yet.</div>`}
+      <div class="st" style="margin:22px 0 10px;">Notes</div>
+      ${notes || `<div class="empty">No notes yet.</div>`}
+      <div class="sans" style="font-size:12px; color:var(--text3); margin-top:18px;">Parent access code: <code>${s.accessCode}</code></div>
+    `;
+  }
+
+  function toggleSubmissionTracker(assignment) {
+    activeSubmissionAssignment = activeSubmissionAssignment === assignment ? null : assignment;
+    render();
+  }
+
+  // ---- Render: Notes ----
+  function renderNotes() {
+    const cards = students.map((s) => {
+      const sortedNotes = [...s.notes].sort((a, b) => (a.date < b.date ? 1 : -1));
+      const notesHtml = sortedNotes.map((n) => `
+        <div class="note-line">
+          <span class="note-date">${n.date}</span>
+          <span class="badge ${catClass(n.category || 'general')}">${catLabel(n.category || 'general')}</span>
+          <span style="flex:1;">${escapeHtml(n.text)}</span>
+          ${n.shared === false ? '<span class="badge b-assigned">Private</span>' : ''}
+          <button class="btn bs bsm" onclick="toggleNoteShared('${s.accessCode}','${n.id}')">${n.shared === false ? 'Share' : 'Hide'}</button>
+          <button class="btn bd bsm" onclick="deleteNote('${s.accessCode}','${n.id}')">Delete</button>
+        </div>
+      `).join("") || `<div class="note-line" style="border:none; padding-left:0; color:var(--text3);">No notes yet.</div>`;
+
+      return `
+        <div class="note-card">
+          <div style="font-weight:600; margin-bottom:10px;">${escapeHtml(s.name)}</div>
+          ${notesHtml}
+          <div style="display:flex; gap:8px; margin-top:10px; flex-wrap:wrap;">
+            <select class="note-cat-select" id="noteCat-${s.accessCode}">
+              <option value="general">General</option>
+              <option value="positive">Positive</option>
+              <option value="concern">Concern</option>
+            </select>
+            <input id="noteInput-${s.accessCode}" placeholder="Add a note..." style="flex:1; min-width:160px;" onkeydown="if(event.key==='Enter') addNote('${s.accessCode}')">
+            <label class="sans" style="display:flex; align-items:center; gap:4px; font-size:12px; margin:0;"><input type="checkbox" id="noteShared-${s.accessCode}" checked style="width:auto;"> Parent can see</label>
+            <button class="btn bp bsm" onclick="addNote('${s.accessCode}')">Add</button>
+          </div>
+        </div>
+      `;
+    }).join("");
+
+    return `
+      <div class="sh"><div class="st">Notes</div></div>
+      ${students.length ? cards : `<div class="empty"><div class="eico">📝</div>Add students first.</div>`}
+    `;
+  }
+
+  // ---- Render: Announcements ----
+  function renderAnnouncements() {
+    const cards = announcements.filter((a) => (a.classId || "default") === activeClassId).map((a) => {
+      const when = a.createdAt ? new Date(a.createdAt).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "";
+      return `
+        <div class="note-card">
+          <div style="display:flex; justify-content:space-between; align-items:baseline; gap:10px; margin-bottom:6px;">
+            <div style="font-weight:600; font-size:15px;">${escapeHtml(a.title || "(untitled)")}</div>
+            <button class="btn bd bsm" onclick="deleteAnnouncement('${a.id}')">Delete</button>
+          </div>
+          ${a.body ? `<div style="color:var(--text2); font-size:13px; line-height:1.5; margin-bottom:8px;">${escapeHtml(a.body)}</div>` : ""}
+          <div class="sans" style="font-size:11px; color:var(--text3);">${when}</div>
+        </div>
+      `;
+    }).join("");
+
+    return `
+      <div class="sh"><div class="st">Announcements <span>visible to all parents</span></div></div>
+
+      <div class="form-box">
+        <div class="fg">
+          <div class="fgp full"><label>Title</label><input id="newAnnouncementTitle" placeholder="e.g. Field trip next Friday"></div>
+        </div>
+        <div class="fg">
+          <div class="fgp full"><label>Details (optional)</label><input id="newAnnouncementBody" placeholder="e.g. Permission slips due Wednesday"></div>
+        </div>
+        <button class="btn bp" style="justify-self:start;" onclick="postAnnouncement()">Post announcement</button>
+      </div>
+
+      ${cards ? cards : `<div class="empty"><div class="eico">📢</div>No announcements yet.</div>`}
+    `;
+  }
+
+  // ---- Render: Reports ----
+  function renderReports() {
+    // Attendance % per student, across every date Firestore has a record for.
+    const attendanceRows = students.map((s) => {
+      return { name: s.name, pct: attendanceRate(s), daysTracked: Object.keys(s.attendance).length };
+    }).sort((a, b) => (a.pct === null ? 1 : b.pct === null ? -1 : a.pct - b.pct)); // lowest attendance first — most actionable
+
+    const attendanceRowsHtml = attendanceRows.map((r) => `
+      <tr>
+        <td>${escapeHtml(r.name)}</td>
+        <td>${r.pct === null ? "—" : r.pct + "%"}</td>
+        <td class="sans" style="color:var(--text3); font-size:12px;">${r.daysTracked} day${r.daysTracked === 1 ? '' : 's'} tracked</td>
+      </tr>
+    `).join("");
+
+    // Missing work: any assignment not yet "submitted", "graded", or "returned".
+    const assignments = getAllAssignments();
+    const missingList = [];
+    students.forEach((s) => {
+      assignments.forEach((a) => {
+        const g = s.grades.find((g) => g.assignment === a);
+        const status = (g && g.status) || "assigned";
+        if (status === "assigned") missingList.push({ student: s.name, assignment: a });
+      });
+    });
+    const missingHtml = missingList.map((m) => `
+      <tr><td>${escapeHtml(m.student)}</td><td>${escapeHtml(m.assignment)}</td></tr>
+    `).join("");
+
+    // Grade distribution: simple bucket counts across every recorded score.
+    const allScores = [];
+    students.forEach((s) => s.grades.forEach((g) => { if (g.score !== null && g.score !== undefined) allScores.push(Math.round(g.score / assignmentInfo(g.assignment).max * 100)); }));
+    const buckets = [
+      { label: "90-100", min: 90, max: 100 },
+      { label: "80-89", min: 80, max: 89 },
+      { label: "70-79", min: 70, max: 79 },
+      { label: "60-69", min: 60, max: 69 },
+      { label: "Below 60", min: 0, max: 59 }
+    ];
+    const bucketCounts = buckets.map((b) => ({
+      ...b,
+      count: allScores.filter((v) => v >= b.min && v <= b.max).length
+    }));
+    const maxCount = Math.max(1, ...bucketCounts.map((b) => b.count));
+    const distributionHtml = bucketCounts.map((b) => `
+      <div style="display:flex; align-items:center; gap:10px; margin-bottom:8px;">
+        <div class="sans" style="width:70px; font-size:12px; color:var(--text2);">${b.label}</div>
+        <div style="flex:1; background:var(--surface2); border-radius:4px; height:18px; overflow:hidden;">
+          <div style="width:${(b.count / maxCount) * 100}%; background:var(--accent); height:100%;"></div>
+        </div>
+        <div class="sans" style="width:24px; font-size:12px; text-align:right; color:var(--text2);">${b.count}</div>
+      </div>
+    `).join("");
+
+    return `
+      <div class="sh"><div class="st">Reports</div>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <button class="btn bs bsm" onclick="exportGrades()">⬇ Grades (Excel)</button>
+          <button class="btn bs bsm" onclick="exportGrades('csv')">⬇ Grades (CSV)</button>
+          <button class="btn bs bsm" onclick="exportAttendance()">⬇ Attendance (Excel)</button>
+          <button class="btn bs bsm" onclick="exportAttendance('csv')">⬇ Attendance (CSV)</button>
+        </div>
+      </div>
+
+      <div class="st" style="margin-bottom:4px;">Attendance rate</div>
+      <div class="sans" style="font-size:12px; color:var(--text3); margin-bottom:10px;">Late counts as present. Excused days are left out of the rate.</div>
+      ${students.length ? `
+        <div class="tw" style="margin-bottom:24px;"><table><thead><tr><th>Name</th><th>Present %</th><th></th></tr></thead><tbody>${attendanceRowsHtml}</tbody></table></div>
+      ` : `<div class="empty" style="margin-bottom:24px;">Add students first.</div>`}
+
+      <div class="st" style="margin-bottom:10px;">Missing work</div>
+      ${missingList.length ? `
+        <div class="tw" style="margin-bottom:24px;"><table><thead><tr><th>Student</th><th>Assignment</th></tr></thead><tbody>${missingHtml}</tbody></table></div>
+      ` : `<div class="empty" style="margin-bottom:24px;">Nothing outstanding — everything is submitted or graded.</div>`}
+
+      <div class="st" style="margin-bottom:10px;">Grade distribution</div>
+      ${allScores.length ? `<div class="tw" style="padding:18px;">${distributionHtml}</div>` : `<div class="empty">No scores recorded yet.</div>`}
+    `;
+  }
+
+  // ---- Render: Settings ----
+  function renderSettings() {
+    return `
+      <div class="sh"><div class="st">Settings</div></div>
+
+      <div class="tw" style="padding:20px; margin-bottom:16px;">
+        <div style="font-weight:600; margin-bottom:6px;">About this version</div>
+        <div style="color:var(--text2); font-size:13px; line-height:1.5;">
+          Offline-first version. Everything is saved on this device first and uploaded to the cloud when you're online, so it works with no signal. If two devices edit the same record, the most recent edit wins.
+        </div>
+      </div>
+
+      <div class="tw" style="padding:20px; margin-bottom:16px;">
+        <div style="font-weight:600; margin-bottom:10px;">Class settings</div>
+        <div class="fg" style="margin-bottom:10px;">
+          <div class="fgp"><label>Class name</label><input id="cs-name" value="${escapeHtml(activeClass().name || "")}"></div>
+          <div class="fgp"><label>Subject</label><input id="cs-subject" value="${escapeHtml(activeClass().subject || "")}"></div>
+          <div class="fgp"><label>Term / year</label><input id="cs-term" value="${escapeHtml(activeClass().term || "")}"></div>
+        </div>
+        <div style="font-size:12px; color:var(--text2); margin-bottom:6px;">Letter grade cut-offs (minimum %)</div>
+        <div style="display:flex; gap:8px; margin-bottom:12px;">
+          ${["A","B","C","D"].map((l) => `<div style="flex:1;"><label>${l}</label><input type="number" id="cs-${l}" value="${gradeScale()[l]}" min="0" max="100"></div>`).join("")}
+        </div>
+        <button class="btn bp" onclick="saveClassSettings()">Save class settings</button>
+      </div>
+
+      <div class="tw" style="padding:20px; margin-bottom:16px;">
+        <div style="font-weight:600; margin-bottom:6px;">Backup &amp; restore</div>
+        <div style="color:var(--text2); font-size:13px; margin-bottom:12px; line-height:1.5;">A backup is a copy of this device's data. Restoring adds it back and uploads it. It also accepts backups from the offline-only version.</div>
+        <input type="file" id="localRestoreInput" accept="application/json" class="hidden" onchange="localBackupImport(event)">
+        <button class="btn bp" onclick="localBackupExport()">⬇ Download backup</button>
+        <button class="btn bs" onclick="document.getElementById('localRestoreInput').click()">⬆ Restore backup</button>
+      </div>
+
+      <div class="tw" style="padding:20px; border-color:var(--danger);">
+        <div style="font-weight:600; margin-bottom:6px; color:var(--danger);">⚠ Reset everything</div>
+        <div style="color:var(--text2); font-size:13px; margin-bottom:14px; line-height:1.5;">
+          Permanently deletes every student, attendance record, grade, assignment, and note from this device and, once online, from the cloud for everyone. Also clears this device's PIN. This cannot be undone.
+          <br><br>
+          Use this if the app gets stuck or you want to start completely fresh during testing. Not meant for routine use once this is handling real class data.
+        </div>
+        <button class="btn bd" onclick="resetEverything()">Reset app — delete all data</button>
+      </div>
+    `;
+  }
+
+  async function resetEverything() {
+    const confirm1 = confirm("This will permanently delete ALL students, attendance, grades, and notes from the cloud database — for every device, not just this one. Continue?");
+    if (!confirm1) return;
+    const confirm2 = confirm("Really sure? This cannot be undone. Type-check: tap OK only if you want a completely clean slate.");
+    if (!confirm2) return;
+
+    const main = document.getElementById("main");
+    main.innerHTML = `<div class="empty">Resetting… please wait, this may take a moment.</div>`;
+
+    try {
+      // Gather every doc reference to delete first (reads are cheap and
+      // fast in parallel), then delete everything in batched chunks of
+      // 450 (Firestore's batch cap is 500) — much faster than the old
+      // one-document-at-a-time approach, and it also shrinks the window
+      // where a failure partway through could leave things half-deleted.
+      const refsToDelete = [];
+
+      const studentsSnap = await db.collection("students").get();
+      const subcollections = ["attendance", "grades", "notes"];
+      await Promise.all(studentsSnap.docs.map(async (studentDoc) => {
+        const subSnaps = await Promise.all(
+          subcollections.map((sub) => studentDoc.ref.collection(sub).get())
+        );
+        subSnaps.forEach((snap) => snap.docs.forEach((d) => refsToDelete.push(d.ref)));
+        refsToDelete.push(studentDoc.ref);
+      }));
+
+      const assignmentsSnap = await db.collection("assignments").get();
+      assignmentsSnap.docs.forEach((d) => refsToDelete.push(d.ref));
+
+      const announcementsSnap = await db.collection("announcements").get();
+      announcementsSnap.docs.forEach((d) => refsToDelete.push(d.ref));
+      const eventsSnap = await db.collection("events").get();
+      eventsSnap.docs.forEach((d) => refsToDelete.push(d.ref));
+      const resSnap = await db.collection("resources").get();
+      resSnap.docs.forEach((d) => refsToDelete.push(d.ref));
+      const resFilesSnap = await db.collection("resourceFiles").get();
+      resFilesSnap.docs.forEach((d) => refsToDelete.push(d.ref));
+      const classesSnap = await db.collection("classes").get();
+      classesSnap.docs.forEach((d) => refsToDelete.push(d.ref));
+
+      const CHUNK_SIZE = 450;
+      for (let i = 0; i < refsToDelete.length; i += CHUNK_SIZE) {
+        const batch = db.batch();
+        refsToDelete.slice(i, i + CHUNK_SIZE).forEach((ref) => batch.delete(ref));
+        await batch.commit();
+      }
+
+      // Clear local PIN so the next open starts the "set a new PIN" flow.
+      localStorage.removeItem(PIN_KEY);
+
+      alert("Reset complete. The app will now reload.");
+      location.reload();
+    } catch (err) {
+      console.error(err);
+      main.innerHTML = `<div class="banner error">Reset failed partway through: ${escapeHtml(err.message)}. Some data may have been deleted. Check the Students page and try again if needed.</div>`;
+    }
+  }
+
+  function render() {
+    document.querySelectorAll(".nb").forEach((btn) => btn.classList.toggle("active", btn.dataset.view === view));
+    const main = document.getElementById("main");
+    if (view === "dashboard") main.innerHTML = renderDashboard();
+    else if (view === "roster") main.innerHTML = renderRoster();
+    else if (view === "attendance") main.innerHTML = renderAttendance();
+    else if (view === "grades") main.innerHTML = renderGrades();
+    else if (view === "notes") main.innerHTML = renderNotes();
+    else if (view === "announcements") main.innerHTML = renderAnnouncements();
+    else if (view === "reports") main.innerHTML = renderReports();
+    else if (view === "profile") main.innerHTML = renderProfile();
+    else if (view === "calendar") main.innerHTML = renderCalendar();
+    else if (view === "resources") main.innerHTML = renderResources();
+    else if (view === "settings") main.innerHTML = renderSettings();
+  }
+
+  document.querySelectorAll(".nb").forEach((btn) => btn.addEventListener("click", () => setView(btn.dataset.view)));
+
+  initPinScreen();
+  renderPinDots();
+
+  // Start listening for Firestore data now that every function above
+  // (attachStudentsListener, render, etc.) actually exists — but only
+  // if Firebase actually initialized. If it didn't, the PIN pad and
+  // app shell still work; you'll just see an empty student list and
+  // the error badge above until the Firebase issue is fixed.
+  if (!firebaseInitError) {
+    attachStudentsListener();
+    attachClassesListener();
+    attachAssignmentMetaListener();
+    attachEventsListener();
+    attachResourcesListener();
+    attachAnnouncementsListener();
+  }
+</script>
 </body>
 </html>
