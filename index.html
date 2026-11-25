@@ -1,2220 +1,875 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Class 5A — Classroom Manager (Sync)</title>
-
-<!-- Firebase SDKs (compat style — plain script tags, no build step).
-     crossorigin="anonymous" is important here: without it, browsers
-     collapse any error thrown inside these externally-hosted scripts
-     down to a generic, un-debuggable "Script error." with no real
-     message or location — which is exactly what was hiding the
-     actual bug until now. -->
-<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js" crossorigin="anonymous"></script>
-<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore-compat.js" crossorigin="anonymous"></script>
-
-
-
-<!-- TEMPORARY DIAGNOSTIC: shows any JS error directly on screen,
-     so it can be read on a phone with no computer attached.
-     Safe to remove once the current issue is found. -->
-<script>
-  // Queues messages if document.body doesn't exist yet (this script
-  // runs in <head>, before <body> is parsed — an error firing this
-  // early would otherwise throw INSIDE the error handler itself
-  // trying to append to a null body, which can silently stop the
-  // whole page from rendering further. That was a real bug here.
-  var diagnosticQueue = [];
-  function showDiagnostic(text) {
-    diagnosticQueue.push(text);
-    flushDiagnosticQueue();
-  }
-  function flushDiagnosticQueue() {
-    if (!document.body || diagnosticQueue.length === 0) return;
-    var box = document.getElementById("errorDiagnosticBox");
-    if (!box) {
-      box = document.createElement("div");
-      box.id = "errorDiagnosticBox";
-      box.style.cssText = "position:fixed;bottom:0;left:0;right:0;background:#2b0000;color:#ff8080;font-family:monospace;font-size:12px;padding:12px;z-index:99999;max-height:40vh;overflow:auto;white-space:pre-wrap;border-top:2px solid #ff4757;";
-      document.body.appendChild(box);
-    }
-    while (diagnosticQueue.length) {
-      box.textContent += diagnosticQueue.shift() + "\n\n";
-    }
-  }
-  document.addEventListener("DOMContentLoaded", flushDiagnosticQueue);
-  window.addEventListener("error", function (e) {
-    var detail = e.error && e.error.stack ? e.error.stack : e.message;
-    showDiagnostic("ERROR: " + detail + "\n  at " + (e.filename || "?") + ":" + e.lineno + ":" + e.colno);
-  });
-  // Catches failures inside async/await code that nothing .catch()'d —
-  // a common silent-failure source, distinct from the synchronous
-  // errors "error" above catches.
-  window.addEventListener("unhandledrejection", function (e) {
-    var reason = e.reason;
-    var detail = reason && reason.stack ? reason.stack : (reason && reason.message) ? reason.message : String(reason);
-    showDiagnostic("UNHANDLED PROMISE REJECTION: " + detail);
-  });
-</script>
-
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Wholesale POS — Sales & Accounts</title>
 <style>
-:root{--bg:#0f1117;--surface:#181c27;--surface2:#1e2335;--border:#2a3050;--accent:#00c896;--accent2:#0099ff;--warn:#ffb300;--danger:#ff4757;--text:#e8eaf0;--text2:#8892b0;--text3:#4a5568;--mono:"Courier New",monospace;--sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;}
-[data-theme="light"]{--bg:#f4f6fb;--surface:#ffffff;--surface2:#eef0f7;--border:#d0d7e8;--text:#1a1f36;--text2:#4a5568;--text3:#9aa5b8;}
-*{box-sizing:border-box;margin:0;padding:0;}
-body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14px;min-height:100vh;transition:background .2s,color .2s;}
-
-/* PIN screen (cloud version — see auth note in the script below) */
-#login-screen{position:fixed;inset:0;background:var(--bg);z-index:9998;display:flex;align-items:center;justify-content:center;}
-.login-box{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:40px;text-align:center;width:340px;}
-.login-title{font-size:20px;font-weight:600;margin-bottom:6px;}
-.login-sub{font-size:12px;color:var(--text2);margin-bottom:20px;line-height:1.5;}
-.pin-dots{display:flex;gap:12px;justify-content:center;margin-bottom:20px;}
-.pin-dot{width:14px;height:14px;border-radius:50%;border:2px solid var(--border);transition:all .15s;}
-.pin-dot.filled{background:var(--accent);border-color:var(--accent);}
-.pin-pad{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;}
-.pin-key{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:16px;font-size:18px;font-family:var(--mono);font-weight:600;cursor:pointer;color:var(--text);}
-.pin-key:hover{border-color:var(--accent);}
-.pin-key.del{color:var(--danger);font-size:14px;}
-.login-err{color:var(--danger);font-size:12px;margin-top:10px;text-align:center;min-height:16px;}
-.login-note{font-size:11px;color:var(--text2);margin-top:14px;padding:10px;background:var(--surface2);border-radius:6px;line-height:1.5;text-align:left;}
-.risk-note{font-size:11px;color:var(--warn);margin-top:10px;padding:10px;background:rgba(255,179,0,.08);border:1px solid rgba(255,179,0,.25);border-radius:6px;line-height:1.5;text-align:left;}
-.theme-toggle-pin{position:absolute;top:20px;right:20px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-size:12px;color:var(--text2);cursor:pointer;}
-.conn-badge{font-size:11px;padding:4px 8px;border-radius:4px;margin-bottom:14px;display:inline-block;}
-.conn-ok{background:rgba(0,200,150,.15);color:var(--accent);}
-.conn-bad{background:rgba(255,71,87,.13);color:var(--danger);}
-
-/* App shell: sidebar layout (unchanged from local version) */
-#appShell{display:flex;min-height:100vh;}
-.sidebar{width:220px;background:var(--surface);border-right:1px solid var(--border);flex-shrink:0;display:flex;flex-direction:column;min-height:100vh;position:sticky;top:0;}
-.sidebar-head{padding:20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;}
-.logo-icon{width:32px;height:32px;background:var(--accent);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;}
-.logo-text{font-family:var(--mono);font-size:13px;line-height:1.4;}
-.logo-text span{color:var(--accent);}
-.sb-nav{padding:12px 8px;flex:1;}
-.nb{display:flex;align-items:center;gap:10px;width:100%;background:none;border:none;color:var(--text2);font-family:var(--sans);font-size:13px;font-weight:500;padding:11px 12px;cursor:pointer;border-radius:6px;text-align:left;margin-bottom:2px;}
-.nb:hover{color:var(--text);background:var(--surface2);}
-.nb.active{color:var(--accent);background:rgba(0,200,150,.1);}
-.nb .ic{font-size:15px;width:18px;text-align:center;}
-.sb-foot{padding:12px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:8px;}
-.acct-email{font-size:11px;color:var(--text3);padding:0 4px;word-break:break-all;}
-.tbtn,.lbtn{background:none;border:1px solid var(--border);border-radius:6px;color:var(--text2);padding:8px 10px;cursor:pointer;font-size:12px;font-family:var(--sans);width:100%;}
-.tbtn:hover{border-color:var(--accent);color:var(--accent);}
-.lbtn:hover{border-color:var(--danger);color:var(--danger);}
-
-main{flex:1;padding:28px 32px;max-width:1000px;}
-
-.srow{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:16px;margin-bottom:24px;}
-.sc{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:18px;position:relative;overflow:hidden;}
-.sc::before{content:"";position:absolute;top:0;left:0;right:0;height:3px;background:var(--accent);}
-.sc.w::before{background:var(--warn);}
-.slabel{font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px;}
-.sval{font-family:var(--mono);font-size:28px;font-weight:600;}
-.ssub{font-size:11px;color:var(--text3);margin-top:4px;}
-
-.sh{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px;}
-.st{font-size:15px;font-weight:600;}
-.st span{color:var(--text2);font-weight:400;font-size:13px;margin-left:8px;}
-
-.btn{display:inline-flex;align-items:center;gap:6px;border:none;border-radius:6px;cursor:pointer;font-family:var(--sans);font-size:13px;font-weight:500;padding:8px 16px;transition:all .15s;}
-.bp{background:var(--accent);color:#000;}
-.bp:hover{background:#00dfa8;}
-.bs{background:var(--surface2);color:var(--text);border:1px solid var(--border);}
-.bs:hover{border-color:var(--accent);color:var(--accent);}
-.bd{background:var(--danger);color:#fff;}
-.bsm{padding:5px 10px;font-size:12px;}
-.pill-present{border:1px solid var(--accent);color:var(--accent);background:none;}
-.pill-present.active{background:var(--accent);color:#000;}
-.pill-absent{border:1px solid var(--danger);color:var(--danger);background:none;}
-.pill-absent.active{background:var(--danger);color:#fff;}
-.pill-late{border:1px solid var(--warn);color:var(--warn);background:none;}
-.pill-late.active{background:var(--warn);color:#000;}
-.pill-excused{border:1px solid var(--accent2);color:var(--accent2);background:none;}
-.pill-excused.active{background:var(--accent2);color:#fff;}
-
-.tw{background:var(--surface);border:1px solid var(--border);border-radius:8px;overflow:hidden;}
-table{width:100%;border-collapse:collapse;}
-thead{background:var(--surface2);}
-th{padding:11px 14px;text-align:left;font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.07em;border-bottom:1px solid var(--border);}
-td{padding:11px 14px;border-bottom:1px solid var(--border);color:var(--text);font-size:13px;}
-tr:last-child td{border-bottom:none;}
-tr:hover td{background:rgba(128,128,128,.05);}
-
-.badge{display:inline-block;padding:3px 8px;border-radius:4px;font-size:11px;font-weight:600;font-family:var(--mono);}
-.bok{background:rgba(0,200,150,.15);color:var(--accent);}
-.bpos{background:rgba(0,200,150,.15);color:var(--accent);}
-.bcon{background:rgba(255,71,87,.13);color:var(--danger);}
-.bgen{background:rgba(0,153,255,.13);color:var(--accent2);}
-.b-assigned{background:var(--surface2);color:var(--text3);}
-.b-submitted{background:rgba(0,153,255,.13);color:var(--accent2);}
-.b-graded{background:rgba(255,179,0,.13);color:var(--warn);}
-.b-returned{background:rgba(0,200,150,.15);color:var(--accent);}
-
-label{font-size:12px;color:var(--text2);font-weight:500;display:block;margin-bottom:6px;}
-input,select{background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:var(--sans);font-size:13px;padding:9px 12px;outline:none;width:100%;}
-input:focus,select:focus{border-color:var(--accent);}
-.fg{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
-.fgp.full{grid-column:1/-1;}
-.form-box{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:18px;margin-bottom:20px;display:grid;gap:12px;}
-
-.note-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px;margin-bottom:14px;}
-.note-line{font-size:13px;color:var(--text2);margin-bottom:8px;padding-left:10px;border-left:2px solid var(--border);display:flex;flex-wrap:wrap;gap:6px;align-items:baseline;}
-.note-date{color:var(--text3);font-size:11px;font-family:var(--mono);}
-.note-cat-select{width:auto;padding:6px 8px;font-size:12px;}
-
-.empty{text-align:center;padding:48px;color:var(--text3);}
-.eico{font-size:36px;margin-bottom:12px;}
-.hidden{display:none!important;}
-.banner{font-size:13px;padding:10px 14px;border-radius:6px;margin-bottom:18px;}
-.banner.error{background:#fbeee7;color:#a5502f;border:1px solid #e9c4ac;}
-.banner.info{background:rgba(0,153,255,.1);color:var(--accent2);border:1px solid rgba(0,153,255,.25);}
-
-.access-code-row{display:flex;align-items:center;gap:8px;}
-.access-code-row code{font-family:var(--mono);font-size:12px;background:var(--surface2);padding:3px 8px;border-radius:4px;border:1px solid var(--border);}
-
-.week-grid{display:grid;grid-template-columns:1.6fr repeat(5,1fr);gap:0;background:var(--surface);border:1px solid var(--border);border-radius:8px;overflow:hidden;}
-.week-grid > div{padding:10px 12px;border-bottom:1px solid var(--border);font-size:12px;display:flex;align-items:center;justify-content:center;text-align:center;}
-.week-grid > div:first-child{justify-content:flex-start;text-align:left;font-weight:500;}
-.week-head{background:var(--surface2);font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text2);font-weight:600;}
-.att-cell{width:26px;height:26px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:12px;margin:0 auto;}
-.att-cell.present{background:rgba(0,200,150,.15);color:var(--accent);}
-.att-cell.absent{background:rgba(255,71,87,.13);color:var(--danger);}
-.att-cell.late{background:rgba(255,179,0,.13);color:var(--warn);}
-.att-cell.excused{background:rgba(0,153,255,.13);color:var(--accent2);}
-.att-cell.none{background:var(--surface2);color:var(--text3);}
-
-.spinner{display:inline-block;width:14px;height:14px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;}
-@keyframes spin{to{transform:rotate(360deg);}}
-
-@media (max-width:768px){
-  #appShell{flex-direction:column;}
-  .sidebar{width:100%;position:static;flex-direction:row;align-items:center;overflow-x:auto;min-height:auto;}
-  .sidebar-head{border-bottom:none;border-right:1px solid var(--border);}
-  .sb-nav{display:flex;flex:none;padding:8px;}
-  .sb-foot{flex-direction:row;border-top:none;border-left:1px solid var(--border);}
-  main{padding:16px;}
-  .srow{grid-template-columns:1fr 1fr;}
-  .fg{grid-template-columns:1fr;}
-  .tw{overflow-x:auto;}
-  table{min-width:480px;}
-  .week-grid{overflow-x:auto;grid-template-columns:1.4fr repeat(5,60px);font-size:11px;min-width:520px;}
-}
+*{box-sizing:border-box}
+body{margin:0;font-family:Arial,Helvetica,sans-serif;background:#eef2f7;color:#111}
+.top{background:#1a2b4a;color:#fff;display:flex;justify-content:space-between;align-items:center;padding:10px 16px;flex-wrap:wrap;gap:8px}
+.top b{font-size:16px}
+.badge{background:#ffc107;color:#1a2b4a;padding:4px 10px;border-radius:20px;font-weight:700;font-size:12px}
+.wrap{max-width:1250px;margin:16px auto;padding:0 12px}
+.card{background:#fff;border-radius:12px;padding:18px;box-shadow:0 3px 12px rgba(0,0,0,.08)}
+.nav{display:flex;gap:6px;flex-wrap:wrap;background:#fff;padding:8px;border-radius:10px;margin-bottom:14px;align-items:center}
+.nav button{padding:9px 14px;border:none;border-radius:8px;background:#e8eef7;cursor:pointer;font-weight:600;font-size:13px}
+.nav button.active{background:#1a2b4a;color:#fff}
+.nav .who{margin-left:auto;font-size:12px;color:#555}
+.nav .who b{color:#1a2b4a}
+.hidden{display:none!important}
+h2{margin:6px 0 14px;font-size:19px;color:#1a2b4a}
+h3{font-size:15px;margin:16px 0 8px;border-bottom:1px solid #dde5f0;padding-bottom:6px}
+input,select,textarea{padding:9px;border:1px solid #b7c4d8;border-radius:7px;width:100%;font-family:inherit;font-size:13px}
+textarea{min-height:60px}
+.btn{padding:9px 14px;border:1px solid #999;background:#f2f2f2;border-radius:7px;cursor:pointer;font-weight:600;font-size:13px}
+.btn:hover{opacity:.9}
+.btn.primary{background:#1da851;color:#fff;border-color:#1da851}
+.btn.blue{background:#2196f3;color:#fff;border-color:#2196f3}
+.btn.orange{background:#ff9800;color:#fff;border-color:#ff9800}
+.btn.red{background:#d32f2f;color:#fff;border-color:#d32f2f}
+.btn.dark{background:#1a2b4a;color:#fff;border-color:#1a2b4a}
+.btn.sm{padding:5px 9px;font-size:12px}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:10px 0}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+@media(max-width:760px){.grid2,.grid3{grid-template-columns:1fr}}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{background:#dbe6f5;padding:9px;text-align:left;font-size:12px}
+td{padding:8px;border-top:1px solid #eee;vertical-align:middle}
+.kpi{display:flex;gap:10px;flex-wrap:wrap;margin:12px 0}
+.kpi div{background:#f4f8fe;border:1px solid #dde5f0;border-radius:10px;padding:12px 16px;flex:1;min-width:130px}
+.kpi b{font-size:22px;display:block;color:#1a2b4a}
+.pill{background:#e3edfb;padding:3px 9px;border-radius:12px;font-size:11px;font-weight:700}
+.st-low{background:#f8d7da;color:#721c24;padding:3px 9px;border-radius:12px;font-size:11px;font-weight:700}
+.st-ok{background:#d4edda;color:#155724;padding:3px 9px;border-radius:12px;font-size:11px;font-weight:700}
+.st-pend{background:#ffe2b8;color:#7a4a00;padding:3px 9px;border-radius:12px;font-size:11px;font-weight:700}
+.st-ready{background:#cfe8ff;color:#0a4a7a;padding:3px 9px;border-radius:12px;font-size:11px;font-weight:700}
+.st-await{background:#fff3cd;color:#856404;padding:3px 9px;border-radius:12px;font-size:11px;font-weight:700}
+.st-credit{background:#fff3cd;color:#856404;padding:3px 9px;border-radius:12px;font-size:11px;font-weight:700}
+.pos-layout{display:grid;grid-template-columns:1.4fr 1fr;gap:14px}
+@media(max-width:900px){.pos-layout{grid-template-columns:1fr}}
+.cart-item{display:flex;justify-content:space-between;align-items:center;padding:8px;border-bottom:1px solid #eee;font-size:13px}
+.cart-item .qty{display:flex;gap:4px;align-items:center}
+.cart-item .qty button{width:26px;height:26px;border:none;border-radius:6px;background:#e8eef7;cursor:pointer;font-weight:700}
+.total-box{background:#1a2b4a;color:#fff;padding:16px;border-radius:10px;margin-top:10px}
+.total-box .line{display:flex;justify-content:space-between;padding:4px 0;font-size:14px}
+.total-box .grand{font-size:22px;font-weight:800;border-top:1px solid #3d5278;margin-top:8px;padding-top:8px}
+.success{background:#d4edda;border:1px solid #a3d9b1;padding:10px;border-radius:8px;margin:8px 0;font-size:13px}
+.warn{background:#fff3cd;border:1px solid #ffe08a;padding:10px;border-radius:8px;margin:8px 0;font-size:13px}
+.note{font-size:12px;color:#666;text-align:center;margin-top:14px}
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:50;padding:12px}
+.modal{background:#fff;border-radius:12px;padding:20px;max-width:600px;width:100%;max-height:90vh;overflow:auto}
+.receipt{font-family:monospace;font-size:12px;white-space:pre-wrap;background:#fff;padding:14px;border:1px dashed #888;border-radius:6px}
+.login-wrap{max-width:420px;margin:60px auto}
+.login-wrap .card{padding:26px}
 </style>
 </head>
 <body>
-
-<!-- LOGIN SCREEN (PIN-gated; see auth note in script) -->
-<div id="login-screen">
-  <button class="theme-toggle-pin" id="pinThemeToggle">☀️ Light</button>
-  <div class="login-box">
-    <div class="login-title" id="loginTitle">Class 5A</div>
-    <div class="login-sub" id="pinSub">Enter your teacher PIN</div>
-    <div id="connBadge" class="conn-badge">Connecting…</div>
-    <div class="pin-dots">
-      <div class="pin-dot" id="pd0"></div>
-      <div class="pin-dot" id="pd1"></div>
-      <div class="pin-dot" id="pd2"></div>
-      <div class="pin-dot" id="pd3"></div>
-    </div>
-    <div class="login-err" id="loginError"></div>
-    <div class="pin-pad">
-      <button class="pin-key" onclick="pinKey('1')">1</button>
-      <button class="pin-key" onclick="pinKey('2')">2</button>
-      <button class="pin-key" onclick="pinKey('3')">3</button>
-      <button class="pin-key" onclick="pinKey('4')">4</button>
-      <button class="pin-key" onclick="pinKey('5')">5</button>
-      <button class="pin-key" onclick="pinKey('6')">6</button>
-      <button class="pin-key" onclick="pinKey('7')">7</button>
-      <button class="pin-key" onclick="pinKey('8')">8</button>
-      <button class="pin-key" onclick="pinKey('9')">9</button>
-      <button class="pin-key" style="grid-column:2" onclick="pinKey('0')">0</button>
-      <button class="pin-key del" onclick="pinDel()">⌫</button>
-    </div>
-    <div class="login-note">Offline-first: works without internet and syncs when you're back online.</div>
-    <div class="risk-note">Saved on this device and synced to the cloud when online. The cloud database rules are still open (testing mode), so don't store sensitive data yet. Download a backup from Settings now and then.</div>
-  </div>
+<div class="top">
+  <b>🧵 WHOLESALE CLOTH & BALE POS</b>
+  <span class="badge" id="top-user">NOT LOGGED IN</span>
 </div>
+<div class="wrap">
 
-<!-- APP SHELL -->
-<div id="appShell" class="hidden">
-  <div class="sidebar">
-    <div class="sidebar-head">
-      <div class="logo-icon">🏫</div>
-      <div class="logo-text">CLASS<span>5A</span><br>Sync</div>
-    </div>
-    <div class="sb-nav">
-      <button class="nb active" data-view="dashboard"><span class="ic">📊</span>Dashboard</button>
-      <button class="nb" data-view="roster"><span class="ic">🧒</span>Students</button>
-      <button class="nb" data-view="attendance"><span class="ic">✅</span>Attendance</button>
-      <button class="nb" data-view="grades"><span class="ic">📝</span>Grades</button>
-      <button class="nb" data-view="notes"><span class="ic">🗒️</span>Notes</button>
-      <button class="nb" data-view="announcements"><span class="ic">📢</span>Announcements</button>
-      <button class="nb" data-view="calendar"><span class="ic">🗓️</span>Calendar</button>
-      <button class="nb" data-view="resources"><span class="ic">📎</span>Resources</button>
-      <button class="nb" data-view="reports"><span class="ic">📊</span>Reports</button>
-      <button class="nb" data-view="settings"><span class="ic">⚙️</span>Settings</button>
-    </div>
-    <div class="sb-foot">
-      <button class="tbtn" id="syncStatus" onclick="__syncNow()" style="margin-bottom:2px;">Sync…</button>
-      <select id="classSelect" onchange="switchClass(this.value)" style="margin-bottom:2px;"></select>
-      <button class="tbtn" id="themeToggle">☀️ Light</button>
-      <button class="lbtn" id="signOutBtn">Lock</button>
+  <!-- ================= LOGIN ================= -->
+  <div id="page-login">
+    <div class="login-wrap">
+      <div class="card">
+        <h2 style="text-align:center">🔐 Sign In</h2>
+        <p style="text-align:center;font-size:12px;color:#666">Choose your role — each role gets its own menu.</p>
+        <div class="grid2">
+          <div>
+            <label>Username</label>
+            <input id="login-user" placeholder="e.g. sales1 or accounts1">
+          </div>
+          <div>
+            <label>Password</label>
+            <input id="login-pass" type="password" placeholder="demo">
+          </div>
+        </div>
+        <div class="row" style="justify-content:center;margin-top:16px">
+          <button class="btn blue" onclick="quickLogin('sales')">🛒 Login as Salesperson</button>
+          <button class="btn orange" onclick="quickLogin('accounts')">💰 Login as Accounts</button>
+        </div>
+        <div class="warn" style="margin-top:14px">
+          <b>Demo users:</b><br>
+          Sales: <code>sales1 / demo</code> &nbsp;·&nbsp; Accounts: <code>accounts1 / demo</code>
+        </div>
+      </div>
     </div>
   </div>
 
-  <main id="main"></main>
-</div>
+  <!-- ================= APP SHELL ================= -->
+  <div id="page-app" class="hidden">
+    <div class="nav" id="nav"></div>
 
-<script>
-(function () {
-  var KEY = "classroom_hybrid_db_v1", CONFIG = {
-    apiKey: "AIzaSyBIX7pTbcxdbhv9bD04zCYZm_SaWmoFKSg",
-    authDomain: "classmanager-2776b.firebaseapp.com",
-    projectId: "classmanager-2776b",
-    storageBucket: "classmanager-2776b.firebasestorage.app",
-    messagingSenderId: "982534297826",
-    appId: "1:982534297826:web:fbee27b128f862837fe6bb"
-  };
-  var REAL = (window.firebase && window.firebase.firestore) ? window.firebase : null, realDb = null;
-  var store = {}, meta = {}, delq = {}, listeners = [], dirty = {}, saveTimer = null, pushTimer = null, syncing = false;
-  try { var saved = JSON.parse(localStorage.getItem(KEY) || "{}"); store = saved.s || {}; meta = saved.m || {}; delq = saved.q || {}; } catch (e) {}
-  function persist() { clearTimeout(saveTimer); saveTimer = setTimeout(function () { try { localStorage.setItem(KEY, JSON.stringify({ s: store, m: meta, q: delq })); } catch (e) { console.error("Local save failed:", e); } }, 30); }
-  function copy(o) { return JSON.parse(JSON.stringify(o)); }
-  function uid() { return "id" + Date.now().toString(36) + Math.random().toString(36).slice(2, 10); }
-  function parentOf(p) { return p.slice(0, p.lastIndexOf("/")); }
-  function childPaths(c) { return Object.keys(store).filter(function (p) { return p.indexOf(c + "/") === 0 && p.indexOf("/", c.length + 1) === -1; }); }
-  function docSnap(p) { var has = Object.prototype.hasOwnProperty.call(store, p); return { id: p.slice(p.lastIndexOf("/") + 1), exists: has, ref: docRef(p), data: function () { return has ? copy(store[p]) : undefined; } }; }
-  function snapFor(c, order) {
-    var docs = childPaths(c).map(docSnap);
-    if (order) docs.sort(function (a, b) { var x = a.data()[order.f], y = b.data()[order.f], r = x < y ? -1 : x > y ? 1 : 0; return order.d === "desc" ? -r : r; });
-    return { docs: docs, size: docs.length, empty: !docs.length, forEach: function (fn) { docs.forEach(fn); } };
-  }
-  function notify(c) {
-    if (dirty[c]) return; dirty[c] = 1;
-    setTimeout(function () { delete dirty[c]; listeners.slice().forEach(function (l) { if (l.path === c) l.cb(snapFor(l.path, l.order)); }); }, 0);
-  }
-  // ---- local writes: remember what still needs uploading ----
-  function write(p, d, merge) {
-    store[p] = merge && store[p] ? Object.assign({}, store[p], copy(d)) : copy(d);
-    meta[p] = { t: Date.now(), dirty: true, synced: !!(meta[p] && meta[p].synced) }; delete delq[p];
-    persist(); notify(parentOf(p)); schedulePush();
-  }
-  function remove(p) {
-    if (!(p in store)) return;
-    delete store[p]; if (meta[p] && meta[p].synced) delq[p] = Date.now(); delete meta[p];
-    persist(); notify(parentOf(p)); schedulePush();
-  }
-  function docRef(p) {
-    return { id: p.slice(p.lastIndexOf("/") + 1), path: p,
-      get: function () {
-        // Attached files are big, so they are only downloaded when someone opens one.
-        if (!(p in store) && p.indexOf("resourceFiles/") === 0 && realDb && navigator.onLine) {
-          return realDb.doc(p).get().then(function (s) { if (s.exists) { var r = s.data(); delete r._t; store[p] = r; meta[p] = { t: 0, dirty: false, synced: true }; persist(); } return docSnap(p); }, function () { return docSnap(p); });
-        }
-        return Promise.resolve(docSnap(p));
-      },
-      set: function (d, o) { write(p, d, o && o.merge); return Promise.resolve(); },
-      update: function (d) { if (!(p in store)) return Promise.reject(new Error("No document to update")); write(p, d, true); return Promise.resolve(); },
-      delete: function () { remove(p); return Promise.resolve(); },
-      collection: function (n) { return collRef(p + "/" + n); } };
-  }
-  function collRef(path, order) {
-    return { path: path,
-      doc: function (id) { return docRef(path + "/" + id); },
-      add: function (d) { var id = uid(); write(path + "/" + id, d); return Promise.resolve(docRef(path + "/" + id)); },
-      get: function () { return Promise.resolve(snapFor(path, order)); },
-      orderBy: function (f, d) { return collRef(path, { f: f, d: d || "asc" }); },
-      onSnapshot: function (cb) {
-        var l = { path: path, order: order, cb: cb }; listeners.push(l);
-        setTimeout(function () { cb(snapFor(path, order)); }, 0);
-        return function () { listeners = listeners.filter(function (x) { return x !== l; }); };
-      } };
-  }
-  var db = {
-    collection: function (n) { return collRef(n); },
-    batch: function () {
-      var ops = [];
-      return { set: function (r, d, o) { ops.push(function () { write(r.path, d, o && o.merge); }); },
-               delete: function (r) { ops.push(function () { remove(r.path); }); },
-               commit: function () { ops.forEach(function (f) { f(); }); return Promise.resolve(); } };
-    }
-  };
-  var stand = { initializeApp: function () {}, firestore: function () { return db; } };
-  window.firebase = stand;
-  window.__localStore = function () { return store; };
-
-  // ---- cloud sync ----
-  function setStatus(t) { var e = document.getElementById("syncStatus"); if (e) e.textContent = t; }
-  function waiting() { return Object.keys(meta).filter(function (p) { return meta[p].dirty; }).length + Object.keys(delq).length; }
-  function idle() { var n = waiting(); setStatus(!navigator.onLine ? "Offline · " + n + " waiting" : n ? "Sync · " + n + " waiting" : "Synced ✓"); }
-  function schedulePush() { idle(); clearTimeout(pushTimer); pushTimer = setTimeout(syncOnce, 3000); }
-  function ensureReal() {
-    if (realDb) return Promise.resolve(true);
-    return new Promise(function (resolve) {
-      function boot() {
-        try { try { REAL.app(); } catch (e) { REAL.initializeApp(CONFIG); } realDb = REAL.firestore(); resolve(true); }
-        catch (e) { console.error(e); resolve(false); }
-      }
-      if (REAL) return boot();
-      var urls = ["https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js", "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore-compat.js"], i = 0;
-      (function next() {
-        if (i >= urls.length) { REAL = window.firebase; window.firebase = stand; return boot(); }
-        var s = document.createElement("script"); s.src = urls[i++]; s.crossOrigin = "anonymous";
-        s.onload = next; s.onerror = function () { window.firebase = stand; resolve(false); };
-        document.head.appendChild(s);
-      })();
-    });
-  }
-  async function syncOnce() {
-    if (syncing) return;
-    if (!navigator.onLine) { idle(); return; }
-    syncing = true; setStatus("Syncing…");
-    try {
-      if (!(await ensureReal())) throw new Error("cloud unavailable");
-      // 1) upload local changes
-      var up = Object.keys(meta).filter(function (p) { return meta[p].dirty && p in store; });
-      for (var i = 0; i < up.length; i += 400) {
-        var chunk = up.slice(i, i + 400), b = realDb.batch();
-        chunk.forEach(function (p) { b.set(realDb.doc(p), Object.assign({}, store[p], { _t: meta[p].t })); });
-        await b.commit();
-        chunk.forEach(function (p) { if (meta[p]) { meta[p].dirty = false; meta[p].synced = true; } });
-      }
-      var dl = Object.keys(delq);
-      for (i = 0; i < dl.length; i += 400) { var b2 = realDb.batch(); dl.slice(i, i + 400).forEach(function (p) { b2.delete(realDb.doc(p)); }); await b2.commit(); }
-      dl.forEach(function (p) { delete delq[p]; });
-      // 2) download cloud changes (newer edit wins; deletions made elsewhere are applied here)
-      var changed = {};
-      async function pull(c) {
-        var snap = await realDb.collection(c).get(), seen = {};
-        snap.forEach(function (d) {
-          var p = c + "/" + d.id, r = d.data(), rt = r._t || 0; delete r._t; seen[p] = 1;
-          var m = meta[p];
-          if (p in delq) return;
-          if (!(p in store) || !m || !m.dirty || rt > m.t) {
-            if (!(p in store) || JSON.stringify(store[p]) !== JSON.stringify(r)) { store[p] = r; changed[c] = 1; }
-            meta[p] = { t: rt || (m ? m.t : 0), dirty: false, synced: true };
-          }
-        });
-        childPaths(c).forEach(function (p) {
-          if (!seen[p] && !(meta[p] && meta[p].dirty)) {
-            Object.keys(store).forEach(function (k) { if (k === p || k.indexOf(p + "/") === 0) { delete store[k]; delete meta[k]; } });
-            changed[c] = 1;
-          }
-        });
-        return snap;
-      }
-      var snaps = await Promise.all(["students", "assignments", "announcements", "classes", "events", "resources"].map(pull));
-      var subs = [];
-      snaps[0].forEach(function (d) { ["attendance", "grades", "notes"].forEach(function (s) { subs.push(pull("students/" + d.id + "/" + s)); }); });
-      await Promise.all(subs);
-      Object.keys(changed).forEach(function (k) { if (k.indexOf("students/") === 0) changed.students = 1; });
-      persist(); Object.keys(changed).forEach(function (k) { if (k.indexOf("/") === -1) notify(k); });
-      var n = waiting();
-      setStatus(n ? "Sync · " + n + " waiting" : "Synced ✓ " + new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }));
-    } catch (e) { console.error("Sync failed:", e); setStatus("Offline · " + waiting() + " waiting"); }
-    syncing = false;
-  }
-  window.__syncNow = syncOnce;
-  window.addEventListener("online", syncOnce); window.addEventListener("offline", idle);
-  setInterval(syncOnce, 600000); setTimeout(syncOnce, 1500); idle();
-
-  // ---- backup / restore ----
-  window.localBackupExport = function () {
-    var a = document.createElement("a");
-    a.href = URL.createObjectURL(new Blob([JSON.stringify({ s: store })], { type: "application/json" }));
-    a.download = "classroom-backup-" + new Date().toISOString().slice(0, 10) + ".json";
-    document.body.appendChild(a); a.click(); a.remove();
-  };
-  window.localBackupImport = function (ev) {
-    var f = ev.target.files[0]; ev.target.value = ""; if (!f) return;
-    var r = new FileReader();
-    r.onload = function () {
-      try {
-        var parsed = JSON.parse(r.result), s = parsed && parsed.s ? parsed.s : parsed;  // also accepts backups from the offline-only version
-        if (!s || typeof s !== "object" || Array.isArray(s)) throw new Error("bad");
-        if (!confirm("This adds the backup's data to this device and uploads it to the cloud. Existing data is kept. Continue?")) return;
-        Object.keys(s).forEach(function (p) { store[p] = s[p]; meta[p] = { t: Date.now(), dirty: true, synced: false }; delete delq[p]; });
-        localStorage.setItem(KEY, JSON.stringify({ s: store, m: meta, q: delq })); location.reload();
-      } catch (e) { alert("That doesn't look like a backup file from this app."); }
-    };
-    r.readAsText(f);
-  };
-})();
-
-</script>
-<script>
-  // ============================================================
-  // CLOUD VERSION — same features and UI as the local/offline app,
-  // but backed by Firestore for shared, multi-device data. Access
-  // is currently PIN-only with no real Firebase Auth (see the
-  // testing-mode notice further down) — not real per-teacher login.
-  // This runs ALONGSIDE the local version, not replacing it — pick
-  // whichever you want to use day to day; nothing here touches the
-  // local version's data.
-  //
-  // Data shape (matches the security rules already written):
-  //   /students/{accessCode}
-  //   /students/{accessCode}/attendance/{date}
-  //   /students/{accessCode}/grades/{assignment}
-  //   /students/{accessCode}/notes/{noteId}
-  // ============================================================
-
-  const FIREBASE_CONFIG = {
-    apiKey: "AIzaSyBIX7pTbcxdbhv9bD04zCYZm_SaWmoFKSg",
-    authDomain: "classmanager-2776b.firebaseapp.com",
-    projectId: "classmanager-2776b",
-    storageBucket: "classmanager-2776b.firebasestorage.app",
-    messagingSenderId: "982534297826",
-    appId: "1:982534297826:web:fbee27b128f862837fe6bb"
-  };
-
-  let firebaseInitError = null;
-  let db;
-  try {
-    firebase.initializeApp(FIREBASE_CONFIG);
-    db = firebase.firestore();
-  } catch (err) {
-    firebaseInitError = err;
-    console.error("Firebase failed to initialize:", err);
-  }
-
-  // ============================================================
-  // ⚠️ TEMPORARY TESTING CONFIGURATION — READ BEFORE SHARING ⚠️
-  // ------------------------------------------------------------
-  // This version connects to Firestore with NO Firebase Auth
-  // identity at all. It relies entirely on the database's security
-  // rules being fully open (allow read, write: if true — see
-  // firestore-OPEN-TESTING-ONLY.rules). The PIN below is a LOCAL
-  // UI GATE ONLY: it decides whether THIS BROWSER shows the app.
-  // It does NOT restrict the database itself in any way.
-  //
-  // Anyone who has this file's Firebase config values — visible
-  // right in this file's source — can read and write every
-  // document in this project directly, with no PIN, no login,
-  // nothing in the way. This is accepted deliberately for solo
-  // testing only. BEFORE any real teacher, parent, or student
-  // data goes in, or before this file is shared with anyone else:
-  //   1. Replace the Firestore rules with the locked-down version
-  //      (firestore.rules — requires a real "teacher" identity)
-  //   2. Re-enable real sign-in (see the earlier hidden-account
-  //      or email/password versions of this app for that pattern)
-  // ============================================================
-
-  const PIN_KEY = "classroom_5a_hybrid_pin";
-  let pinBuffer = "";
-
-  function getStoredPin() { return localStorage.getItem(PIN_KEY); }
-
-  function initPinScreen() {
-    const storedPin = getStoredPin();
-    if (!storedPin) {
-      document.getElementById("pinSub").textContent = "Set a 4-digit PIN for this device";
-    } else {
-      document.getElementById("pinSub").textContent = "Enter your teacher PIN";
-    }
-  }
-  function renderPinDots() {
-    for (let i = 0; i < 4; i++) document.getElementById("pd" + i).classList.toggle("filled", i < pinBuffer.length);
-  }
-  function pinKey(digit) {
-    if (pinBuffer.length >= 4) return;
-    pinBuffer += digit;
-    renderPinDots();
-    if (pinBuffer.length === 4) setTimeout(submitPin, 150);
-  }
-  function pinDel() {
-    pinBuffer = pinBuffer.slice(0, -1);
-    renderPinDots();
-    document.getElementById("loginError").textContent = "";
-  }
-  function submitPin() {
-    const storedPin = getStoredPin();
-    const errorEl = document.getElementById("loginError");
-    if (!storedPin) {
-      localStorage.setItem(PIN_KEY, pinBuffer);
-      tryUnlock();
-      return;
-    }
-    if (pinBuffer === storedPin) {
-      tryUnlock();
-    } else {
-      errorEl.textContent = "Incorrect PIN. Try again.";
-      pinBuffer = "";
-      renderPinDots();
-    }
-  }
-
-  function tryUnlock() {
-    pinBuffer = "";
-    document.getElementById("login-screen").classList.add("hidden");
-    document.getElementById("appShell").classList.remove("hidden");
-    document.getElementById("appShell").style.display = "flex";
-    render();
-  }
-
-  document.getElementById("signOutBtn").addEventListener("click", () => {
-    document.getElementById("appShell").classList.add("hidden");
-    document.getElementById("login-screen").classList.remove("hidden");
-    initPinScreen();
-    renderPinDots();
-  });
-
-  // Connection badge — reflects whether Firebase actually initialized.
-  // (If this shows an error, the PIN pad below will still work —
-  // it no longer depends on Firebase succeeding first.)
-  const badge = document.getElementById("connBadge");
-  if (firebaseInitError) {
-    const sdkMissing = typeof firebase === "undefined";
-    badge.textContent = sdkMissing
-      ? "Could not load Firebase (no internet, or gstatic.com is blocked here) — reload with a connection"
-      : "Firebase failed to connect — check console for error";
-    badge.className = "conn-badge conn-bad";
-  } else {
-    badge.textContent = "Works offline · syncs when online";
-    badge.className = "conn-badge conn-ok";
-  }
-
-  const THEME_KEY = "classroom_5a_theme";
-  let students = []; // hydrated live from Firestore
-  let view = "dashboard";
-  let editingStudentCode = null;
-  let profileCode = null;
-  let resources = [];
-  let unsubscribeResources = null;
-  let calMonth = null;
-  let calendarEvents = [];
-  let unsubscribeEvents = null;
-  let activeClassId = localStorage.getItem("classroom_active_class") || "default";
-  let classesList = [{ id: "default", name: "Class 5A" }];
-  let lastStudentsSnapshot = null;
-  let activeSubmissionAssignment = null; // which assignment's submission tracker is shown on Grades
-  let unsubscribeStudents = null;
-  let todayDate = new Date();
-  let today = todayDate.toISOString().slice(0, 10);
-
-  function getWeekDates() {
-    const d = new Date(todayDate);
-    const day = d.getDay();
-    const mondayOffset = day === 0 ? -6 : 1 - day;
-    const monday = new Date(d);
-    monday.setDate(d.getDate() + mondayOffset);
-    const dates = [];
-    for (let i = 0; i < 5; i++) {
-      const dt = new Date(monday);
-      dt.setDate(monday.getDate() + i);
-      dates.push(dt.toISOString().slice(0, 10));
-    }
-    return dates;
-  }
-  let weekDates = getWeekDates();
-  const weekDayLabels = ["Mon", "Tue", "Wed", "Thu", "Fri"];
-
-  // If the app stays open past midnight, move "today" and the weekly
-  // grid forward instead of leaving yesterday's date active.
-  function refreshDateContext() {
-    const nowStr = new Date().toISOString().slice(0, 10);
-    if (nowStr === today) return false;
-    todayDate = new Date(); today = nowStr; weekDates = getWeekDates();
-    return true;
-  }
-  setInterval(() => { if (refreshDateContext()) render(); }, 60000);
-
-  // ---- Theme ----
-  function applyTheme(theme) {
-    if (theme === "light") document.documentElement.setAttribute("data-theme", "light");
-    else document.documentElement.removeAttribute("data-theme");
-    const label = theme === "light" ? "🌙 Dark" : "☀️ Light";
-    const t1 = document.getElementById("themeToggle");
-    const t2 = document.getElementById("pinThemeToggle");
-    if (t1) t1.textContent = label;
-    if (t2) t2.textContent = label;
-  }
-  function toggleTheme() {
-    const current = localStorage.getItem(THEME_KEY) || "dark";
-    const next = current === "dark" ? "light" : "dark";
-    localStorage.setItem(THEME_KEY, next);
-    applyTheme(next);
-  }
-  document.getElementById("themeToggle").addEventListener("click", toggleTheme);
-  document.getElementById("pinThemeToggle").addEventListener("click", toggleTheme);
-  applyTheme(localStorage.getItem(THEME_KEY) || "dark");
-
-  // ---- Helpers ----
-  function escapeHtml(str) {
-    const div = document.createElement("div");
-    div.textContent = str || "";
-    return div.innerHTML;
-  }
-  // Safe random-ID generator: uses crypto.randomUUID() where available
-  // (modern browsers), falls back to Math.random()-based IDs otherwise
-  // (some Android WebView builds used for APK wrapping lack randomUUID).
-  function randomId() {
-    if (window.crypto && typeof window.crypto.randomUUID === "function") {
-      return window.crypto.randomUUID();
-    }
-    return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
-      const r = Math.random() * 16 | 0;
-      const v = c === "x" ? r : (r & 0x3 | 0x8);
-      return v.toString(16);
-    });
-  }
-  function generateAccessCode() { return randomId().split("-").slice(0, 3).join("-"); }
-
-  // ---- On-demand Excel library loading ----
-  // Loaded only when the user actually clicks Import/Export, not
-  // eagerly at page load — so a slow or blocked CDN never delays
-  // the PIN screen or the rest of the app. Tries a locally vendored
-  // copy first (for true offline use — see note below), then falls
-  // through three different CDNs in sequence, so one CDN being
-  // unreachable doesn't kill the feature outright.
-  //
-  // TO GO FULLY OFFLINE: download xlsx.full.min.js (v0.18.5) from
-  // https://cdn.sheetjs.com/xlsx-0.18.5/package/dist/xlsx.full.min.js
-  // and save it next to this HTML file as "lib/xlsx.local.js" — no
-  // code changes needed; it's tried before any CDN and, once present,
-  // skips the network entirely on every future use.
-  function ensureXLSX(callback, onFail) {
-    if (typeof XLSX !== "undefined") { callback(); return; }
-    const sources = [
-      "lib/xlsx.local.js",
-      "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js",
-      "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.min.js",
-      "https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js"
-    ];
-    function tryNext(i) {
-      if (i >= sources.length) {
-        console.warn("XLSX library not available from any source.");
-        if (onFail) onFail();
-        else alert("Could not load the Excel library from any source. Check your internet connection and try again.");
-        return;
-      }
-      const s = document.createElement("script");
-      s.src = sources[i];
-      s.crossOrigin = "anonymous";
-      s.onload = () => { console.log("XLSX loaded from: " + sources[i]); callback(); };
-      s.onerror = () => tryNext(i + 1);
-      document.head.appendChild(s);
-    }
-    tryNext(0);
-  }
-  function average(scores) {
-    if (!scores.length) return "—";
-    return Math.round(scores.reduce((a, b) => a + b, 0) / scores.length);
-  }
-  function findStudent(code) { return students.find((s) => s.accessCode === code); }
-  function catClass(cat) { return cat === "positive" ? "bpos" : cat === "concern" ? "bcon" : "bgen"; }
-  function catLabel(cat) { return cat === "positive" ? "Positive" : cat === "concern" ? "Concern" : "General"; }
-
-  // ---- Connectivity badge shown before sign-in resolves ----
-  // (checkConnection() removed — the silent sign-in above now
-  // reports connection status directly via connBadge.)
-
-  // ---- Firestore: live roster + nested subcollections ----
-  // Guards against overlapping updates: Firestore's onSnapshot fires
-  // again every time ANY write happens (including our own writes,
-  // like marking attendance). Each firing re-fetches every student's
-  // subcollections, which takes a moment. Without a guard, a second
-  // snapshot firing before the first finishes processing would start
-  // a second, overlapping hydrate+render pass — the two can race and
-  // leave the UI stuck showing stale data or appearing unresponsive.
-  // We queue: if a hydrate is already running, remember that a newer
-  // snapshot arrived and re-run once the current pass finishes.
-  let hydrateInProgress = false;
-  let pendingSnapshot = null;
-
-  function attachStudentsListener() {
-    if (unsubscribeStudents) unsubscribeStudents();
-    unsubscribeStudents = db.collection("students").onSnapshot(
-      (snapshot) => { handleSnapshot(snapshot); },
-      (err) => {
-        console.error(err);
-        const main = document.getElementById("main");
-        if (main) main.innerHTML = `<div class="banner error">Could not load students from Firebase. Check your internet connection, or that your account has been added to the "teachers" collection (see setup notes).</div>`;
-      }
-    );
-  }
-
-  async function handleSnapshot(snapshot) {
-    if (hydrateInProgress) {
-      pendingSnapshot = snapshot; // remember the latest, process after current pass
-      return;
-    }
-    hydrateInProgress = true;
-    try {
-      const nextStudents = [];
-      lastStudentsSnapshot = snapshot;
-      for (const doc of snapshot.docs.filter((d) => (d.data().classId || "default") === activeClassId)) {
-        // Safe defaults set immediately — not after hydrateSubcollections()
-        // runs. Without this, any render() that fires in the gap between
-        // "students array updated" and "hydrate finished" (both are async
-        // and Firestore can fire snapshots mid-flight) hits student objects
-        // with no .grades/.attendance/.notes yet, which crashes any code
-        // that loops over them — this was the root cause of the "nothing
-        // responds" symptom.
-        nextStudents.push({ accessCode: doc.id, attendance: {}, grades: [], notes: [], ...doc.data() });
-      }
-      const isFirstLoad = students.length === 0 && nextStudents.length > 0;
-      students = nextStudents;
-      // Only show the "safe defaults, no subcollection data yet" render
-      // on the very first load, where there's nothing better on screen
-      // already. On every later update (e.g. a student added elsewhere),
-      // the existing rendered data stays visible until the fresh,
-      // fully-hydrated data is ready — no flash of empty attendance/
-      // grades/notes for students who were already loaded correctly.
-      if (isFirstLoad) render();
-      await hydrateSubcollections();
-      render();
-    } catch (err) {
-      console.error("Error processing snapshot:", err);
-    } finally {
-      hydrateInProgress = false;
-      if (pendingSnapshot) {
-        const next = pendingSnapshot;
-        pendingSnapshot = null;
-        handleSnapshot(next);
-      }
-    }
-  }
-
-  // Fetches every student's subcollections in parallel, not one student
-  // at a time. With N students this is still 3N reads (unavoidable
-  // without denormalizing the data model), but it no longer waits on
-  // each student sequentially — for a real class size this is the
-  // difference between a brief pause and a visibly slow reload on
-  // every single write anywhere in the app.
-  async function hydrateSubcollections() {
-    await Promise.all(students.map(async (s) => {
-      const [attSnap, gradesSnap, notesSnap] = await Promise.all([
-        db.collection("students").doc(s.accessCode).collection("attendance").get(),
-        db.collection("students").doc(s.accessCode).collection("grades").get(),
-        db.collection("students").doc(s.accessCode).collection("notes").get(),
-      ]);
-      s.attendance = {};
-      attSnap.forEach((d) => { s.attendance[d.id] = d.data().status; });
-      s.grades = [];
-      gradesSnap.forEach((d) => { s.grades.push({ assignment: d.id, score: d.data().score, status: d.data().status || "assigned" }); });
-      s.notes = [];
-      notesSnap.forEach((d) => { s.notes.push({ id: d.id, ...d.data() }); });
-      s.notes.sort((a, b) => (a.date < b.date ? 1 : -1));
-    }));
-  }
-
-  // ---- Actions: Students ----
-  function toggleAddForm() { document.getElementById("addFormBox").classList.toggle("hidden"); }
-
-  async function addStudent() {
-    const name = document.getElementById("newName").value.trim();
-    const guardian = document.getElementById("newGuardian").value.trim();
-    if (!name) return;
-    const accessCode = generateAccessCode();
-    try {
-      await db.collection("students").doc(accessCode).set({ name, guardian, classId: activeClassId, createdAt: new Date().toISOString() });
-      document.getElementById("addFormBox").classList.add("hidden");
-    } catch (err) {
-      console.error(err);
-      alert("Could not save the student. Check your connection and try again.");
-    }
-  }
-
-  function copyCode(code) {
-    // Some sandboxed/in-app browser viewers (e.g. content:// file
-    // viewers) deny the modern clipboard API outright. Try it first;
-    // if denied, fall back to the older selection-based copy method,
-    // which works in far more restrictive contexts. Either way, give
-    // clear feedback rather than failing silently.
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(code).then(
-        () => showCopyFeedback(true),
-        () => { if (!legacyCopy(code)) showCopyFeedback(false); else showCopyFeedback(true); }
-      );
-    } else {
-      showCopyFeedback(legacyCopy(code));
-    }
-  }
-
-  function legacyCopy(text) {
-    try {
-      const textarea = document.createElement("textarea");
-      textarea.value = text;
-      textarea.style.position = "fixed";
-      textarea.style.opacity = "0";
-      document.body.appendChild(textarea);
-      textarea.focus();
-      textarea.select();
-      const ok = document.execCommand("copy");
-      document.body.removeChild(textarea);
-      return ok;
-    } catch (err) {
-      console.error("Legacy copy failed:", err);
-      return false;
-    }
-  }
-
-  function showCopyFeedback(success) {
-    const msg = success ? "Access code copied." : "Could not copy automatically — please select and copy the code manually.";
-    const el = document.createElement("div");
-    el.textContent = msg;
-    el.style.cssText = "position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:" + (success ? "var(--accent)" : "var(--danger)") + ";color:#000;padding:10px 18px;border-radius:6px;font-size:13px;z-index:99999;font-family:-apple-system,sans-serif;";
-    document.body.appendChild(el);
-    setTimeout(() => el.remove(), 2200);
-  }
-  function startStudentEdit(code) { editingStudentCode = code; render(); }
-  function cancelStudentEdit() { editingStudentCode = null; render(); }
-
-  // ---- Roster export/import (Excel/CSV, via SheetJS, loaded on demand) ----
-  function exportRoster() {
-    ensureXLSX(() => {
-      const rows = students.map((s) => ({
-        Name: s.name,
-        Guardian: s.guardian || "",
-        "Parent Access Code": s.accessCode
-      }));
-      const worksheet = XLSX.utils.json_to_sheet(rows);
-      const workbook = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(workbook, worksheet, "Students");
-      const stamp = new Date().toISOString().slice(0, 10);
-      XLSX.writeFile(workbook, (activeClass().name || "class").replace(/[^a-z0-9]+/gi, "-").toLowerCase() + `-roster-${stamp}.xlsx`);
-    }, () => {
-      alert("Could not load the Excel library to export. Check your internet connection and try again — or ask about setting up offline export.");
-    });
-  }
-
-  function triggerRosterImport() {
-    document.getElementById("rosterImportInput").click();
-  }
-
-  function handleRosterImport(event) {
-    const file = event.target.files[0];
-    event.target.value = ""; // allow re-selecting the same file later
-    if (!file) return;
-
-    const importStatus = document.getElementById("importStatus");
-    if (importStatus) importStatus.textContent = "Loading Excel library...";
-
-    ensureXLSX(
-      () => { processRosterImportFile(file); },
-      () => { if (importStatus) importStatus.textContent = "Could not load the Excel library. Check your internet connection and try again."; }
-    );
-  }
-
-  async function processRosterImportFile(file) {
-    const importStatus = document.getElementById("importStatus");
-    if (importStatus) importStatus.textContent = "Reading file...";
-
-    try {
-      const data = await file.arrayBuffer();
-      const workbook = XLSX.read(data);
-      const firstSheetName = workbook.SheetNames[0];
-      const sheet = workbook.Sheets[firstSheetName];
-      const rows = XLSX.utils.sheet_to_json(sheet, { defval: "" });
-
-      if (!rows.length) {
-        if (importStatus) importStatus.textContent = "The file has no rows to import.";
-        return;
-      }
-
-      // Accept a few common header spellings so this isn't picky about
-      // exactly matching our own export format.
-      function getField(row, candidates) {
-        for (const key of Object.keys(row)) {
-          if (candidates.includes(key.trim().toLowerCase())) return String(row[key]).trim();
-        }
-        return "";
-      }
-
-      // Build the list of valid rows first, then write them in batches
-      // (Firestore caps a single batch at 500 operations, so chunk at
-      // 450 to leave headroom) instead of one sequential round-trip per
-      // student — much faster for any real-sized roster file.
-      const toImport = [];
-      let skipped = 0;
-      for (const row of rows) {
-        const name = getField(row, ["name", "full name", "student name", "student"]);
-        const guardian = getField(row, ["guardian", "guardian name", "parent", "parent name"]);
-        if (!name) { skipped++; continue; }
-        toImport.push({ accessCode: generateAccessCode(), name, guardian });
-      }
-
-      if (importStatus) importStatus.textContent = `Importing ${toImport.length} student${toImport.length === 1 ? '' : 's'}...`;
-
-      const CHUNK_SIZE = 450;
-      for (let i = 0; i < toImport.length; i += CHUNK_SIZE) {
-        const chunk = toImport.slice(i, i + CHUNK_SIZE);
-        const batch = db.batch();
-        chunk.forEach((row) => {
-          const ref = db.collection("students").doc(row.accessCode);
-          batch.set(ref, { name: row.name, guardian: row.guardian, classId: activeClassId, createdAt: new Date().toISOString() });
-        });
-        await batch.commit();
-        chunk.forEach((row) => {
-          students.push({ accessCode: row.accessCode, name: row.name, guardian: row.guardian, attendance: {}, grades: [], notes: [] });
-        });
-      }
-
-      render();
-      if (importStatus) {
-        importStatus.textContent = `Imported ${toImport.length} student${toImport.length === 1 ? '' : 's'}.` + (skipped ? ` Skipped ${skipped} row(s) with no name.` : "");
-      }
-    } catch (err) {
-      console.error(err);
-      if (importStatus) importStatus.textContent = "Could not read that file. Make sure it's a .xlsx, .xls, or .csv file with Name/Guardian columns.";
-    }
-  }
-
-  async function saveStudentEdit(code) {
-    const newName = document.getElementById("editName-" + code).value.trim();
-    const newGuardian = document.getElementById("editGuardian-" + code).value.trim();
-    if (!newName) return;
-    try {
-      await db.collection("students").doc(code).update({ name: newName, guardian: newGuardian });
-      editingStudentCode = null;
-    } catch (err) {
-      console.error(err);
-      alert("Could not save changes. Try again.");
-    }
-  }
-
-  async function deleteStudent(code) {
-    const s = findStudent(code);
-    if (!confirm(`Remove ${s.name} from the class? This deletes their attendance, grades, and notes too. This cannot be undone.`)) return;
-    try {
-      // Delete subcollection docs first, then the student doc itself.
-      const subcollections = ["attendance", "grades", "notes"];
-      for (const sub of subcollections) {
-        const snap = await db.collection("students").doc(code).collection(sub).get();
-        await Promise.all(snap.docs.map((d) => d.ref.delete()));
-      }
-      await db.collection("students").doc(code).delete();
-    } catch (err) {
-      console.error(err);
-      alert("Could not remove this student. Try again.");
-    }
-  }
-
-  // ---- Actions: Attendance ----
-  // IMPORTANT: writes below go to SUBCOLLECTIONS (students/{code}/attendance,
-  // .../grades, .../notes). Firestore's onSnapshot listener on the parent
-  // "students" collection does NOT fire when a subcollection's documents
-  // change — that's a hard platform behavior, not a bug. Without updating
-  // local state here directly, the UI would only catch up on a full reload
-  // (exactly the symptom reported: writes succeed, but nothing updates
-  // live until the app is reopened). So every write below also updates
-  // the in-memory `students` array and calls render() immediately.
-  async function markAttendance(code, status) {
-    try {
-      await db.collection("students").doc(code).collection("attendance").doc(today).set({ status, date: today });
-      const s = findStudent(code);
-      if (s) s.attendance[today] = status;
-      render();
-    } catch (err) {
-      console.error(err);
-      alert("Could not save attendance. Try again.");
-    }
-  }
-
-  // Marks everyone present in one go — teacher then taps exceptions
-  // (late, absent, excused) individually, which is faster than
-  // tapping "present" for every single student every day.
-  async function markAllPresent() {
-    try {
-      await Promise.all(students.map((s) =>
-        db.collection("students").doc(s.accessCode).collection("attendance").doc(today).set({ status: "present", date: today })
-      ));
-      students.forEach((s) => { s.attendance[today] = "present"; });
-      render();
-    } catch (err) {
-      console.error(err);
-      alert("Could not mark everyone present. Try again.");
-    }
-  }
-
-  // ---- Actions: Grades / Assignments ----
-  // Assignment metadata (description, due date) lives once per
-  // assignment in its own "assignments" collection, separate from
-  // the per-student score docs — avoids duplicating the same
-  // description/due-date into every single student's grade record.
-  function toggleAssignmentForm() { document.getElementById("assignmentFormBox").classList.toggle("hidden"); }
-
-  async function addAssignment() {
-    const title = document.getElementById("newAssignmentName").value.trim();
-    const description = document.getElementById("newAssignmentDesc").value.trim();
-    const dueDate = document.getElementById("newAssignmentDue").value;
-    const maxIn = Number((document.getElementById("newAssignmentMax") || {}).value);
-    const wtIn = Number((document.getElementById("newAssignmentWeight") || {}).value);
-    const maxScore = maxIn > 0 ? maxIn : 100, weight = wtIn > 0 ? wtIn : 1;
-    if (!title) return;
-    try {
-      await db.collection("assignments").doc(assignDocId(title)).set({ title, classId: activeClassId, description, dueDate: dueDate || null, maxScore, weight, createdAt: new Date().toISOString() });
-      await Promise.all(students.map((s) => {
-        const exists = s.grades.some((g) => g.assignment === title);
-        if (exists) return Promise.resolve();
-        s.grades.push({ assignment: title, score: null, status: "assigned" }); // local state, so the column shows immediately
-        return db.collection("students").doc(s.accessCode).collection("grades").doc(title).set({ score: null });
-      }));
-      document.getElementById("newAssignmentName").value = "";
-      document.getElementById("newAssignmentDesc").value = "";
-      document.getElementById("newAssignmentDue").value = "";
-      document.getElementById("assignmentFormBox").classList.add("hidden");
-      render(); // assignmentMeta itself updates via the live listener; this render shows the new grade column immediately
-    } catch (err) {
-      console.error(err);
-      alert("Could not create the assignment. Try again.");
-    }
-  }
-
-  // Live, not a one-time load — previously this only ran once at
-  // startup, so an assignment added on another device never showed
-  // its due date/description here until a manual reload.
-  let assignmentMeta = {}; // { title: { description, dueDate } }
-  let unsubscribeAssignmentMeta = null;
-  function attachAssignmentMetaListener() {
-    if (unsubscribeAssignmentMeta) unsubscribeAssignmentMeta();
-    unsubscribeAssignmentMeta = db.collection("assignments").onSnapshot(
-      (snap) => {
-        assignmentMeta = {};
-        snap.forEach((d) => { const v = d.data(); if ((v.classId || "default") === activeClassId) assignmentMeta[v.title || d.id] = v; });
-        if (view === "grades") render();
-      },
-      (err) => { console.error("Assignment metadata listener error:", err); }
-    );
-  }
-
-  // ---- Announcements: a top-level collection, so (unlike subcollection
-  // writes elsewhere in this app) a real onSnapshot listener works
-  // correctly here and updates live with no manual render-after-write
-  // needed — Firestore's listener limitation only applies to subcollections.
-  let announcements = [];
-  let unsubscribeAnnouncements = null;
-  function attachAnnouncementsListener() {
-    if (unsubscribeAnnouncements) unsubscribeAnnouncements();
-    unsubscribeAnnouncements = db.collection("announcements").orderBy("createdAt", "desc").onSnapshot(
-      (snapshot) => {
-        announcements = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
-        if (view === "announcements" || view === "dashboard") render();
-      },
-      (err) => { console.error("Announcements listener error:", err); }
-    );
-  }
-
-  async function postAnnouncement() {
-    const titleEl = document.getElementById("newAnnouncementTitle");
-    const bodyEl = document.getElementById("newAnnouncementBody");
-    const title = titleEl.value.trim();
-    const body = bodyEl.value.trim();
-    if (!title && !body) return;
-    try {
-      await db.collection("announcements").add({ title, body, classId: activeClassId, createdAt: new Date().toISOString() });
-      titleEl.value = "";
-      bodyEl.value = "";
-    } catch (err) {
-      console.error(err);
-      alert("Could not post the announcement. Try again.");
-    }
-  }
-
-  async function deleteAnnouncement(id) {
-    if (!confirm("Delete this announcement? This cannot be undone.")) return;
-    try {
-      await db.collection("announcements").doc(id).delete();
-    } catch (err) {
-      console.error(err);
-      alert("Could not delete the announcement. Try again.");
-    }
-  }
-
-  async function setScore(code, assignment, value) {
-    const num = value === "" ? null : Math.max(0, Math.min(assignmentInfo(assignment).max, Number(value)));
-    try {
-      // merge:true — this doc also holds submission status (see
-      // setSubmissionStatus below); without merge, setting a score would
-      // silently wipe out that status field, and vice versa.
-      await db.collection("students").doc(code).collection("grades").doc(assignment).set({ score: num, updatedAt: new Date().toISOString() }, { merge: true });
-      const s = findStudent(code);
-      if (s) {
-        const g = s.grades.find((g) => g.assignment === assignment);
-        if (g) g.score = num;
-        else s.grades.push({ assignment, score: num, status: "assigned" });
-      }
-      // No full re-render here: it would rebuild the score input out from
-      // under the user's cursor. Instead, update just this student's
-      // average badge in place so it stays accurate immediately.
-      if (s) {
-        const badge = document.getElementById("avg-" + code);
-        if (badge) {
-          const scores = s.grades.map((g) => g.score).filter((v) => v !== null && v !== undefined);
-          badge.textContent = gradeAverageLabel(s);
-        }
-      }
-    } catch (err) {
-      console.error(err);
-      alert("Could not save the score. Try again.");
-    }
-  }
-
-  // Submission status per student per assignment: assigned → submitted →
-  // graded → returned. Stored on the same grades/{assignment} doc as the
-  // score, so one doc tracks both — merge:true keeps score and status
-  // independent of each other.
-  const SUBMISSION_STATUSES = ["assigned", "submitted", "graded", "returned"];
-  function statusLabel(status) {
-    const s = status || "assigned";
-    return s.charAt(0).toUpperCase() + s.slice(1);
-  }
-  async function setSubmissionStatus(code, assignment, status) {
-    try {
-      await db.collection("students").doc(code).collection("grades").doc(assignment).set({ status, updatedAt: new Date().toISOString() }, { merge: true });
-      const s = findStudent(code);
-      if (s) {
-        const g = s.grades.find((g) => g.assignment === assignment);
-        if (g) g.status = status;
-        else s.grades.push({ assignment, score: null, status });
-      }
-      render();
-    } catch (err) {
-      console.error(err);
-      alert("Could not update submission status. Try again.");
-    }
-  }
-
-  function getAllAssignments() {
-    const names = new Set();
-    students.forEach((s) => (s.grades || []).forEach((g) => names.add(g.assignment)));
-    return Array.from(names);
-  }
-
-  // ---- Actions: Notes ----
-  async function addNote(code) {
-    const input = document.getElementById("noteInput-" + code);
-    const catSelect = document.getElementById("noteCat-" + code);
-    const text = input.value.trim();
-    if (!text) return;
-    try {
-      const category = catSelect.value;
-      const sharedBox = document.getElementById("noteShared-" + code);
-      const shared = sharedBox ? sharedBox.checked : true;
-      const docRef = await db.collection("students").doc(code).collection("notes").add({ text, date: today, category, shared, createdAt: new Date().toISOString() });
-      const s = findStudent(code);
-      if (s) s.notes.unshift({ id: docRef.id, text, date: today, category, shared });
-      render();
-    } catch (err) {
-      console.error(err);
-      alert("Could not save the note. Try again.");
-    }
-  }
-
-  async function deleteNote(code, noteId) {
-    try {
-      await db.collection("students").doc(code).collection("notes").doc(noteId).delete();
-      const s = findStudent(code);
-      if (s) s.notes = s.notes.filter((n) => n.id !== noteId);
-      render();
-    } catch (err) {
-      console.error(err);
-      alert("Could not delete the note. Try again.");
-    }
-  }
-
-  function setView(v) { view = v; render(); }
-
-  // ---- Render: Dashboard ----
-  function renderDashboard() {
-    const total = students.length;
-    const presentToday = students.filter((s) => s.attendance[today] === "present").length;
-    const totalNotes = students.reduce((sum, s) => sum + s.notes.length, 0);
-    const concernNotes = students.reduce((sum, s) => sum + s.notes.filter((n) => n.category === "concern").length, 0);
-
-    return `
-      <div class="sh"><div class="st">Dashboard <span>${today} · synced live</span></div></div>
-      <div class="srow">
-        <div class="sc">
-          <div class="slabel">Students</div>
-          <div class="sval">${total}</div>
-          <div class="ssub">enrolled in ${escapeHtml(activeClass().name)}</div>
+    <!-- ============ SALES: POS ============ -->
+    <div id="page-pos">
+      <div class="pos-layout">
+        <div class="card">
+          <h2>🛒 Sales — Build Order</h2>
+          <div class="row">
+            <input id="pos-search" placeholder="Search item / category..." oninput="renderPosProducts()" style="flex:1">
+            <select id="pos-cat" onchange="renderPosProducts()" style="width:160px"><option value="">All Categories</option></select>
+          </div>
+          <div id="pos-products" style="max-height:420px;overflow:auto;margin-top:10px"></div>
         </div>
-        <div class="sc">
-          <div class="slabel">Present Today</div>
-          <div class="sval">${presentToday}/${total}</div>
-          <div class="ssub">attendance marked</div>
-        </div>
-        <div class="sc ${concernNotes ? 'w' : ''}">
-          <div class="slabel">Notes on File</div>
-          <div class="sval">${totalNotes}</div>
-          <div class="ssub">${concernNotes} flagged as concerns</div>
+
+        <div class="card">
+          <h3 style="margin-top:0">🧾 Order Draft</h3>
+          <div class="row" style="margin:6px 0">
+            <select id="pos-customer" style="flex:1" onchange="selCustomer=this.value"></select>
+            <button class="btn sm blue" onclick="openModal('customerModal')">+ Customer</button>
+          </div>
+          <div id="cart" style="min-height:120px;max-height:260px;overflow:auto"></div>
+          <div class="total-box">
+            <div class="line"><span>Subtotal (proposed)</span><span id="t-sub">GHS 0.00</span></div>
+            <div class="line grand"><span>PROPOSED TOTAL</span><span id="t-grand">GHS 0.00</span></div>
+          </div>
+          <div class="warn" style="margin-top:10px;font-size:12px">
+            ⚠️ Discount is <b>not</b> set here. The accounts person bargains and sets the final discount.
+          </div>
+          <div class="row" style="margin-top:10px">
+            <button class="btn blue" style="flex:1" onclick="sendToAccounts()" id="btn-send">📤 Send to Accounts</button>
+            <button class="btn red" onclick="clearCart()">✕ Clear</button>
+          </div>
+          <div id="pos-msg"></div>
         </div>
       </div>
-      <div class="tw" style="padding:16px;">
-        <div class="st" style="margin-bottom:10px;">Quick actions</div>
-        <div style="display:flex; gap:8px; flex-wrap:wrap;">
-          <button class="btn bp" onclick="setView('attendance')">Mark attendance</button>
-          <button class="btn bs" onclick="setView('roster')">Add a student</button>
-          <button class="btn bs" onclick="setView('grades')">Add an assignment</button>
-          <button class="btn bs" onclick="setView('notes')">Add a note</button>
-        </div>
+      <div class="card" style="margin-top:14px">
+        <h3 style="margin-top:0">⏳ My Orders (Awaiting Accounts / Confirmation)</h3>
+        <div style="overflow:auto"><table>
+          <thead><tr><th>Order</th><th>Customer</th><th>Items</th><th>Proposed</th><th>Final</th><th>Receipt No.</th><th>Status</th><th>Action</th></tr></thead>
+          <tbody id="sales-orders-rows"></tbody>
+        </table></div>
       </div>
-    `;
-  }
+    </div>
 
-  // ---- Render: Students ----
-  function renderRoster() {
-    const rows = students.map((s) => {
-      const isEditing = editingStudentCode === s.accessCode;
-      if (isEditing) {
-        return `
-          <tr>
-            <td><input id="editName-${s.accessCode}" value="${escapeHtml(s.name)}" style="padding:6px 8px;"></td>
-            <td><input id="editGuardian-${s.accessCode}" value="${escapeHtml(s.guardian || '')}" style="padding:6px 8px;"></td>
-            <td>
-              <button class="btn bp bsm" onclick="saveStudentEdit('${s.accessCode}')">Save</button>
-              <button class="btn bs bsm" onclick="cancelStudentEdit()">Cancel</button>
-            </td>
-          </tr>
-        `;
-      }
-      return `
-        <tr>
-          <td>${escapeHtml(s.name)}</td>
-          <td>${escapeHtml(s.guardian || "—")}</td>
-          <td>
-            <div class="access-code-row">
-              <code>${s.accessCode}</code>
-              <button class="btn bs bsm" onclick="copyCode('${s.accessCode}')">Copy</button>
-              <button class="btn bs bsm" onclick="openProfile('${s.accessCode}')">Profile</button>
-              ${classesList.length > 1 ? `<button class="btn bs bsm" onclick="moveStudent('${s.accessCode}')">Move</button>` : ""}
-              <button class="btn bs bsm" onclick="startStudentEdit('${s.accessCode}')">Edit</button>
-              <button class="btn bd bsm" onclick="deleteStudent('${s.accessCode}')">Remove</button>
+    <!-- ============ ACCOUNTS: PENDING ORDERS ============ -->
+    <div id="page-accounts" class="hidden">
+      <div class="card">
+        <h2>💰 Accounts — Pending Orders from Sales</h2>
+        <div class="kpi">
+          <div><b id="acc-kpi-pend">0</b>Pending</div>
+          <div><b id="acc-kpi-await">0</b>Awaiting Sales Confirm</div>
+          <div><b id="acc-kpi-closed">0</b>Closed Today</div>
+        </div>
+        <div style="overflow:auto"><table>
+          <thead><tr><th>Order</th><th>Salesperson</th><th>Customer</th><th>Items</th><th>Proposed</th><th>Final</th><th>Receipt No.</th><th>Status</th><th>Action</th></tr></thead>
+          <tbody id="acc-orders-rows"></tbody>
+        </table></div>
+      </div>
+      <div class="card" style="margin-top:14px" id="acc-bargain-panel">
+        <h3 style="margin-top:0">🧮 Bargain & Issue Receipt</h3>
+        <p style="font-size:13px;color:#666" id="acc-bargain-hint">Select a pending order above →</p>
+        <div id="acc-bargain-body" class="hidden">
+          <div class="grid3">
+            <div><label>Order No.</label><input id="acc-order-no" readonly></div>
+            <div><label>Customer</label><input id="acc-cust" readonly></div>
+            <div><label>Salesperson</label><input id="acc-sales" readonly></div>
+          </div>
+          <h3>Items</h3>
+          <div style="overflow:auto"><table>
+            <thead><tr><th>Item</th><th>Qty</th><th>Unit</th><th>Line</th></tr></thead>
+            <tbody id="acc-items-rows"></tbody>
+          </table></div>
+          <div class="total-box">
+            <div class="line"><span>Subtotal (proposed)</span><span id="acc-sub">GHS 0.00</span></div>
+            <div class="line"><span>Discount (bargained)</span><input id="acc-disc" type="number" min="0" value="0" style="width:110px;padding:4px" oninput="recalcAcc()"></div>
+            <div class="line"><span>Tax (VAT 15%)</span><span id="acc-tax">GHS 0.00</span></div>
+            <div class="line grand"><span>FINAL AMOUNT</span><span id="acc-final">GHS 0.00</span></div>
+          </div>
+          <div class="grid2" style="margin-top:12px">
+            <div><label>Payment Method</label>
+              <select id="acc-method">
+                <option>Cash</option><option>MoMo</option><option>Card</option><option>Credit</option>
+              </select>
             </div>
-          </td>
-        </tr>
-      `;
-    }).join("");
-
-    return `
-      <div class="sh">
-        <div class="st">Students <span>${students.length} enrolled</span></div>
-        <div style="display:flex; gap:8px; flex-wrap:wrap;">
-          <input type="file" id="rosterImportInput" accept=".xlsx,.xls,.csv" class="hidden" onchange="handleRosterImport(event)">
-          <button class="btn bs" onclick="triggerRosterImport()">⬆ Import</button>
-          <button class="btn bs" onclick="exportRoster()" ${students.length ? "" : "disabled"}>⬇ Export</button>
-          <button class="btn bp" onclick="toggleAddForm()">+ Add student</button>
-        </div>
-      </div>
-      <div class="sans" id="importStatus" style="font-size:12px; color:var(--text2); margin:-10px 0 16px;"></div>
-
-      <div class="form-box hidden" id="addFormBox">
-        <div class="fg">
-          <div class="fgp"><label>Full name</label><input id="newName" placeholder="e.g. Amara Osei"></div>
-          <div class="fgp"><label>Guardian name</label><input id="newGuardian" placeholder="e.g. F. Osei"></div>
-        </div>
-        <button class="btn bp" style="justify-self:start;" onclick="addStudent()">Save student</button>
-      </div>
-
-      <div class="sans" style="font-size:12px; color:var(--text3); margin-bottom:16px;">Import expects columns named Name and Guardian (.xlsx, .xls, or .csv). Export downloads the current roster with access codes included.</div>
-
-      ${students.length ? `
-        <div class="tw">
-          <table>
-            <thead><tr><th>Name</th><th>Guardian</th><th>Parent access code</th></tr></thead>
-            <tbody>${rows}</tbody>
-          </table>
-        </div>
-      ` : `<div class="empty"><div class="eico">🧒</div>No students yet — add your first one above.</div>`}
-    `;
-  }
-
-  // ---- Render: Attendance ----
-  const ATT_SYMBOLS = { present: "✓", absent: "✕", late: "⏰", excused: "✎" };
-  function attClass(status) { return status === "present" || status === "absent" || status === "late" || status === "excused" ? status : "none"; }
-  function attSymbol(status) { return ATT_SYMBOLS[status] || "–"; }
-
-  function renderAttendance() {
-    const presentCount = students.filter((s) => s.attendance[today] === "present").length;
-    const todayRows = students.map((s) => {
-      const status = s.attendance[today];
-      return `
-        <tr>
-          <td>${escapeHtml(s.name)}</td>
-          <td>
-            <button class="btn bsm pill-present ${status === 'present' ? 'active' : ''}" onclick="markAttendance('${s.accessCode}','present')">Present</button>
-            <button class="btn bsm pill-absent ${status === 'absent' ? 'active' : ''}" onclick="markAttendance('${s.accessCode}','absent')">Absent</button>
-            <button class="btn bsm pill-late ${status === 'late' ? 'active' : ''}" onclick="markAttendance('${s.accessCode}','late')">Late</button>
-            <button class="btn bsm pill-excused ${status === 'excused' ? 'active' : ''}" onclick="markAttendance('${s.accessCode}','excused')">Excused</button>
-          </td>
-        </tr>
-      `;
-    }).join("");
-
-    const weekRows = students.map((s) => {
-      const cells = weekDates.map((d) => {
-        const status = s.attendance[d];
-        return `<div><div class="att-cell ${attClass(status)}">${attSymbol(status)}</div></div>`;
-      }).join("");
-      return `<div>${escapeHtml(s.name)}</div>${cells}`;
-    }).join("");
-
-    const weekHeadCells = weekDayLabels.map((label, i) => `<div class="week-head">${label}<br><span style="font-weight:400;">${weekDates[i].slice(5)}</span></div>`).join("");
-
-    return `
-      <div class="sh">
-        <div class="st">Attendance <span>${today}</span></div>
-        <button class="btn bp" onclick="markAllPresent()">✓ Mark all present</button>
-      </div>
-      <p class="sans" style="color:var(--text2); font-size:12px; margin:-8px 0 16px;">Mark everyone present in one tap, then adjust exceptions (late, absent, excused) individually.</p>
-      <div class="srow" style="grid-template-columns:repeat(auto-fit,minmax(140px,1fr));">
-        <div class="sc"><div class="slabel">Present</div><div class="sval">${presentCount}</div></div>
-        <div class="sc w"><div class="slabel">Total</div><div class="sval">${students.length}</div></div>
-      </div>
-
-      ${students.length ? `
-        <div class="tw"><table><thead><tr><th>Name</th><th>Today</th></tr></thead><tbody>${todayRows}</tbody></table></div>
-
-        <div class="st" style="margin:22px 0 10px;">This week</div>
-        <div class="week-grid">
-          <div class="week-head">Student</div>${weekHeadCells}
-          ${weekRows}
-        </div>
-      ` : `<div class="empty"><div class="eico">📋</div>Add students first.</div>`}
-    `;
-  }
-
-  // ---- Render: Grades ----
-  function renderGrades() {
-    const assignments = getAllAssignments();
-    const rows = students.map((s) => {
-      const cells = assignments.map((a) => {
-        const g = s.grades.find((g) => g.assignment === a);
-        const val = g && g.score !== null && g.score !== undefined ? g.score : "";
-        return `<td><input type="number" min="0" max="${assignmentInfo(a).max}" value="${val}" style="width:70px; padding:6px 8px;" onchange="setScore('${s.accessCode}','${a.replace(/'/g, "\\'")}', this.value)"></td>`;
-      }).join("");
-      const scores = s.grades.map((g) => g.score).filter((v) => v !== null && v !== undefined);
-      return `<tr><td>${escapeHtml(s.name)}</td>${cells}<td><span class="badge bok" id="avg-${s.accessCode}">${gradeAverageLabel(s)}</span></td></tr>`;
-    }).join("");
-    const headCells = assignments.map((a) => `<th>${escapeHtml(a)}</th>`).join("");
-
-    const assignmentCards = assignments.map((a, ai) => {
-      const meta = assignmentMeta[a] || {};
-      const due = meta.dueDate ? `Due ${meta.dueDate}` : "No due date set";
-      const isActive = activeSubmissionAssignment === a;
-      return `
-        <div class="note-card" style="margin-bottom:8px;">
-          <div style="display:flex; justify-content:space-between; align-items:baseline; flex-wrap:wrap; gap:6px;">
-            <div style="font-weight:600;">${escapeHtml(a)}</div>
-            <span class="badge bgen">${escapeHtml(due)}</span>
+            <div><label>Receipt No. (to give customer)</label>
+              <input id="acc-receipt" placeholder="auto-generated">
+            </div>
           </div>
-          ${meta.description ? `<div style="color:var(--text2); font-size:13px; margin-top:6px;">${escapeHtml(meta.description)}</div>` : ""}
-          <button class="btn ${isActive ? 'bp' : 'bs'} bsm" style="margin-top:10px;" onclick="toggleSubmissionTracker('${a.replace(/'/g, "\\'")}')">${isActive ? 'Hide' : 'Track'} submissions</button>
-          <button class="btn bs bsm" style="margin-top:10px;" onclick="editAssignment(${ai})">Edit</button>
-          <button class="btn bd bsm" style="margin-top:10px;" onclick="deleteAssignment(${ai})">Delete</button>
-        </div>
-      `;
-    }).join("");
-
-    let submissionTrackerHtml = "";
-    if (activeSubmissionAssignment && assignments.includes(activeSubmissionAssignment)) {
-      const a = activeSubmissionAssignment;
-      const subRows = students.map((s) => {
-        const g = s.grades.find((g) => g.assignment === a);
-        const status = (g && g.status) || "assigned";
-        const options = SUBMISSION_STATUSES.map((st) => `<option value="${st}" ${st === status ? "selected" : ""}>${statusLabel(st)}</option>`).join("");
-        return `
-          <tr>
-            <td>${escapeHtml(s.name)}</td>
-            <td><span class="badge b-${status}">${statusLabel(status)}</span></td>
-            <td><select onchange="setSubmissionStatus('${s.accessCode}','${a.replace(/'/g, "\\'")}', this.value)">${options}</select></td>
-          </tr>
-        `;
-      }).join("");
-      submissionTrackerHtml = `
-        <div class="st" style="margin:22px 0 10px;">Submissions — ${escapeHtml(a)}</div>
-        ${students.length ? `
-          <div class="tw"><table><thead><tr><th>Name</th><th>Status</th><th>Update</th></tr></thead><tbody>${subRows}</tbody></table></div>
-        ` : `<div class="empty">Add students first.</div>`}
-      `;
-    }
-
-    return `
-      <div class="sh">
-        <div class="st">Grades</div>
-        <button class="btn bp" onclick="toggleAssignmentForm()">+ New assignment</button>
-      </div>
-
-      <div class="form-box hidden" id="assignmentFormBox">
-        <div class="fg">
-          <div class="fgp full"><label>Assignment name</label><input id="newAssignmentName" placeholder="e.g. Spelling Test 3" onkeydown="if(event.key==='Enter') addAssignment()"></div>
-        </div>
-        <div class="fg">
-          <div class="fgp"><label>Due date (optional)</label><input type="date" id="newAssignmentDue"></div>
-          <div class="fgp"><label>Description (optional)</label><input id="newAssignmentDesc" placeholder="e.g. Covers chapters 3-4"></div>
-          <div class="fgp"><label>Out of</label><input type="number" id="newAssignmentMax" value="100" min="1"></div>
-          <div class="fgp"><label>Weight (1 = normal)</label><input type="number" id="newAssignmentWeight" value="1" min="0.1" step="0.1"></div>
-        </div>
-        <button class="btn bp" style="justify-self:start;" onclick="addAssignment()">Add assignment</button>
-      </div>
-
-      ${assignments.length ? `<div class="st" style="margin-bottom:10px;">Assignments</div>${assignmentCards}` : ""}
-
-      ${students.length && assignments.length ? `
-        <div class="st" style="margin:22px 0 10px;">Scores</div>
-        <div class="tw"><table><thead><tr><th>Name</th>${headCells}<th>Average</th></tr></thead><tbody>${rows}</tbody></table></div>
-      ` : students.length ? `<div class="empty"><div class="eico">📝</div>No assignments yet — add one above.</div>` : `<div class="empty"><div class="eico">📊</div>Add students first.</div>`}
-
-      ${submissionTrackerHtml}
-    `;
-  }
-
-  async function toggleNoteShared(code, noteId) {
-    const s = findStudent(code);
-    const n = s && s.notes.find((x) => x.id === noteId);
-    if (!n) return;
-    const next = n.shared === false; // currently private -> share; otherwise hide
-    try {
-      await db.collection("students").doc(code).collection("notes").doc(noteId).set({ shared: next }, { merge: true });
-      n.shared = next;
-      render();
-    } catch (err) {
-      console.error(err);
-      alert("Could not change note visibility. Try again.");
-    }
-  }
-
-  async function editAssignment(i) {
-    const old = getAllAssignments()[i];
-    if (!old) return;
-    const meta = assignmentMeta[old] || {};
-    const title = (prompt("Assignment name:", old) || "").trim();
-    if (!title) return;
-    const description = prompt("Description (optional):", meta.description || "");
-    if (description === null) return;
-    const due = prompt("Due date (YYYY-MM-DD, or leave blank for none):", meta.dueDate || "");
-    if (due === null) return;
-    const dueClean = due.trim();
-    const curInfo = assignmentInfo(old);
-    const maxIn = prompt("Out of (maximum score):", String(curInfo.max)); if (maxIn === null) return;
-    const wIn = prompt("Weight (1 = normal):", String(curInfo.weight)); if (wIn === null) return;
-    const maxScore = Number(maxIn) > 0 ? Number(maxIn) : 100, weight = Number(wIn) > 0 ? Number(wIn) : 1;
-    if (dueClean && !/^\d{4}-\d{2}-\d{2}$/.test(dueClean)) { alert("Use the format YYYY-MM-DD for the due date."); return; }
-    if (title !== old && getAllAssignments().indexOf(title) !== -1) { alert("An assignment with that name already exists."); return; }
-    try {
-      const batch = db.batch();
-      batch.set(db.collection("assignments").doc(assignDocId(title)), { title, classId: activeClassId, description: description.trim(), dueDate: dueClean || null, maxScore, weight, createdAt: meta.createdAt || new Date().toISOString() });
-      if (title !== old) {
-        batch.delete(db.collection("assignments").doc(assignDocId(old)));
-        students.forEach((s) => {
-          const g = s.grades.find((x) => x.assignment === old);
-          if (!g) return;
-          const col = db.collection("students").doc(s.accessCode).collection("grades");
-          batch.set(col.doc(title), { score: g.score === undefined ? null : g.score, status: g.status || "assigned" });
-          batch.delete(col.doc(old));
-        });
-      }
-      await batch.commit();
-      if (title !== old) {
-        students.forEach((s) => { const g = s.grades.find((x) => x.assignment === old); if (g) g.assignment = title; });
-        if (activeSubmissionAssignment === old) activeSubmissionAssignment = title;
-      }
-      render();
-    } catch (err) {
-      console.error(err);
-      alert("Could not save changes. Try again.");
-    }
-  }
-
-  async function deleteAssignment(i) {
-    const name = getAllAssignments()[i];
-    if (!name) return;
-    if (!confirm('Delete "' + name + '" and every student\'s score for it? This cannot be undone.')) return;
-    try {
-      const batch = db.batch();
-      batch.delete(db.collection("assignments").doc(assignDocId(name)));
-      students.forEach((s) => batch.delete(db.collection("students").doc(s.accessCode).collection("grades").doc(name)));
-      await batch.commit();
-      students.forEach((s) => { s.grades = s.grades.filter((g) => g.assignment !== name); });
-      if (activeSubmissionAssignment === name) activeSubmissionAssignment = null;
-      render();
-    } catch (err) {
-      console.error(err);
-      alert("Could not delete the assignment. Try again.");
-    }
-  }
-
-  function assignDocId(t) { return activeClassId === "default" ? t : activeClassId + "__" + t; }
-  function activeClass() { return classesList.find((c) => c.id === activeClassId) || classesList[0] || { id: "default", name: "Class 5A" }; }
-  function assignmentInfo(t) {
-    const m = assignmentMeta[t] || {};
-    return { max: Number(m.maxScore) > 0 ? Number(m.maxScore) : 100, weight: Number(m.weight) > 0 ? Number(m.weight) : 1 };
-  }
-  function gradeScale() { const sc = activeClass().scale || {}; return { A: sc.A || 90, B: sc.B || 80, C: sc.C || 70, D: sc.D || 60 }; }
-  function letterFor(p) { const sc = gradeScale(); return p >= sc.A ? "A" : p >= sc.B ? "B" : p >= sc.C ? "C" : p >= sc.D ? "D" : "F"; }
-  // Weighted average of each score as a percentage of its own maximum.
-  function gradeAverage(s) {
-    let sum = 0, w = 0;
-    s.grades.forEach((g) => {
-      if (g.score === null || g.score === undefined) return;
-      const i = assignmentInfo(g.assignment);
-      sum += (g.score / i.max * 100) * i.weight; w += i.weight;
-    });
-    return w ? Math.round(sum / w) : null;
-  }
-  function gradeAverageLabel(s) { const a = gradeAverage(s); return a === null ? "—" : a + "% (" + letterFor(a) + ")"; }
-
-  let unsubscribeClasses = null;
-  function attachClassesListener() {
-    if (unsubscribeClasses) unsubscribeClasses();
-    unsubscribeClasses = db.collection("classes").onSnapshot((snap) => {
-      const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-      if (!list.some((c) => c.id === "default")) list.unshift({ id: "default", name: "Class 5A" });
-      classesList = list;
-      if (!classesList.some((c) => c.id === activeClassId)) activeClassId = "default";
-      updateClassUI(); render();
-    }, (err) => console.error("Classes listener error:", err));
-  }
-  function updateClassUI() {
-    const sel = document.getElementById("classSelect");
-    if (sel) {
-      sel.innerHTML = classesList.map((c) => `<option value="${c.id}">${escapeHtml(c.name || "Class")}</option>`).join("") + '<option value="__new__">＋ New class…</option>';
-      sel.value = activeClassId;
-    }
-    const logo = document.querySelector(".logo-text");
-    if (logo) logo.innerHTML = escapeHtml(activeClass().name || "Class") + "<br>Sync";
-    const lt = document.getElementById("loginTitle");
-    if (lt) lt.textContent = activeClass().name || "Class";
-  }
-  async function switchClass(v) {
-    if (v === "__new__") {
-      const name = (prompt("Name for the new class:") || "").trim();
-      if (!name) { updateClassUI(); return; }
-      v = randomId().slice(0, 8);
-      try { await db.collection("classes").doc(v).set({ name, subject: "", term: "", createdAt: new Date().toISOString() }); }
-      catch (err) { console.error(err); alert("Could not create the class. Try again."); updateClassUI(); return; }
-      classesList.push({ id: v, name });
-    }
-    activeClassId = v;
-    localStorage.setItem("classroom_active_class", v);
-    activeSubmissionAssignment = null; students = []; assignmentMeta = {};
-    updateClassUI();
-    attachAssignmentMetaListener();
-    if (lastStudentsSnapshot) handleSnapshot(lastStudentsSnapshot); else render();
-  }
-  async function saveClassSettings() {
-    const val = (id) => document.getElementById(id).value.trim();
-    const num = (id, d) => { const n = Number(val(id)); return n >= 0 && n <= 100 ? n : d; };
-    try {
-      await db.collection("classes").doc(activeClassId).set({
-        name: val("cs-name") || "Class", subject: val("cs-subject"), term: val("cs-term"),
-        scale: { A: num("cs-A", 90), B: num("cs-B", 80), C: num("cs-C", 70), D: num("cs-D", 60) }
-      }, { merge: true });
-      alert("Class settings saved.");
-    } catch (err) { console.error(err); alert("Could not save class settings. Try again."); }
-  }
-
-  // ---- Calendar: assignment due dates + custom class events ----
-  function attachEventsListener() {
-    if (unsubscribeEvents) unsubscribeEvents();
-    unsubscribeEvents = db.collection("events").onSnapshot((snap) => {
-      calendarEvents = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-      if (view === "calendar") render();
-    }, (err) => console.error("Events listener error:", err));
-  }
-  async function addCalendarEvent() {
-    const title = document.getElementById("newEventTitle").value.trim();
-    const date = document.getElementById("newEventDate").value;
-    if (!title || !date) { alert("Enter both a title and a date."); return; }
-    try { await db.collection("events").add({ title, date, classId: activeClassId, createdAt: new Date().toISOString() }); }
-    catch (err) { console.error(err); alert("Could not add the event. Try again."); }
-  }
-  async function deleteCalendarEvent(id) {
-    if (!confirm("Delete this event?")) return;
-    try { await db.collection("events").doc(id).delete(); }
-    catch (err) { console.error(err); alert("Could not delete the event. Try again."); }
-  }
-  function shiftMonth(n) { calMonth = new Date(calMonth.getFullYear(), calMonth.getMonth() + n, 1); render(); }
-  function renderCalendar() {
-    if (!calMonth) calMonth = new Date(todayDate.getFullYear(), todayDate.getMonth(), 1);
-    const y = calMonth.getFullYear(), m = calMonth.getMonth();
-    const pad = (n) => String(n).padStart(2, "0");
-    const items = [];
-    Object.keys(assignmentMeta).forEach((t) => { if (assignmentMeta[t].dueDate) items.push({ date: assignmentMeta[t].dueDate, title: t, type: "due" }); });
-    calendarEvents.filter((e) => (e.classId || "default") === activeClassId).forEach((e) => items.push({ date: e.date, title: e.title, type: "event", id: e.id }));
-    let cells = "";
-    for (let i = 0; i < new Date(y, m, 1).getDay(); i++) cells += "<div></div>";
-    const days = new Date(y, m + 1, 0).getDate();
-    for (let d = 1; d <= days; d++) {
-      const ds = y + "-" + pad(m + 1) + "-" + pad(d);
-      const its = items.filter((x) => x.date === ds);
-      const lines = its.slice(0, 2).map((x) => `<div style="font-size:9px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:${x.type === "due" ? "var(--warn)" : "var(--accent2)"};">${escapeHtml(x.title)}</div>`).join("");
-      cells += `<div style="min-height:46px; border:1px solid ${ds === today ? "var(--accent)" : "var(--border)"}; border-radius:6px; padding:4px; font-size:11px; overflow:hidden;"><div>${d}</div>${lines}${its.length > 2 ? `<div style="font-size:9px; color:var(--text3);">+${its.length - 2} more</div>` : ""}</div>`;
-    }
-    const prefix = y + "-" + pad(m + 1);
-    const list = items.filter((x) => x.date.indexOf(prefix) === 0).sort((a, b) => (a.date < b.date ? -1 : 1)).map((x) => `
-      <tr><td>${x.date}</td><td>${escapeHtml(x.title)}</td><td><span class="badge ${x.type === "due" ? "b-graded" : "b-submitted"}">${x.type === "due" ? "Due" : "Event"}</span></td>
-      <td>${x.type === "event" ? `<button class="btn bd bsm" onclick="deleteCalendarEvent('${x.id}')">Delete</button>` : ""}</td></tr>`).join("");
-    const label = calMonth.toLocaleString(undefined, { month: "long", year: "numeric" });
-    return `
-      <div class="sh"><div class="st">Calendar <span>${escapeHtml(activeClass().name || "")}</span></div>
-        <div style="display:flex; gap:8px; align-items:center;"><button class="btn bs bsm" onclick="shiftMonth(-1)">‹</button><span class="sans" style="min-width:120px; text-align:center;">${label}</span><button class="btn bs bsm" onclick="shiftMonth(1)">›</button></div>
-      </div>
-      <div class="form-box"><div class="fg">
-        <div class="fgp"><label>Event title</label><input id="newEventTitle" placeholder="e.g. Field trip"></div>
-        <div class="fgp"><label>Date</label><input type="date" id="newEventDate"></div>
-      </div><button class="btn bp" style="justify-self:start;" onclick="addCalendarEvent()">Add event</button></div>
-      <div style="display:grid; grid-template-columns:repeat(7,1fr); gap:4px; margin-bottom:6px; text-align:center; font-size:10px; color:var(--text2);">${["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].map((x) => `<div>${x}</div>`).join("")}</div>
-      <div style="display:grid; grid-template-columns:repeat(7,1fr); gap:4px; margin-bottom:20px;">${cells}</div>
-      <div class="st" style="margin-bottom:10px;">This month</div>
-      ${list ? `<div class="tw"><table><thead><tr><th>Date</th><th>What</th><th>Type</th><th></th></tr></thead><tbody>${list}</tbody></table></div>` : `<div class="empty">Nothing scheduled this month. Assignment due dates appear here automatically.</div>`}
-    `;
-  }
-
-  // ---- Excel exports (grades, attendance) ----
-  function saveSheet(rows, sheetName, label, fmt) {
-    if (!rows.length) { alert("Nothing to export yet."); return; }
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), sheetName);
-    const cls = (activeClass().name || "class").replace(/[^a-z0-9]+/gi, "-").toLowerCase();
-    XLSX.writeFile(wb, cls + "-" + label + "-" + today + "." + (fmt === "csv" ? "csv" : "xlsx"));
-  }
-  function exportGrades(fmt) {
-    ensureXLSX(() => {
-      const names = getAllAssignments();
-      saveSheet(students.map((s) => {
-        const r = { Name: s.name };
-        names.forEach((a) => {
-          const g = s.grades.find((x) => x.assignment === a);
-          r[a + " (out of " + assignmentInfo(a).max + ")"] = g && g.score !== null && g.score !== undefined ? g.score : "";
-        });
-        const avg = gradeAverage(s);
-        r["Average %"] = avg === null ? "" : avg;
-        r["Letter"] = avg === null ? "" : letterFor(avg);
-        return r;
-      }), "Grades", "grades", fmt);
-    }, () => alert("Could not load the Excel library. Check your connection and try again."));
-  }
-  function exportAttendance(fmt) {
-    ensureXLSX(() => {
-      const dateSet = {};
-      students.forEach((s) => Object.keys(s.attendance).forEach((d) => { dateSet[d] = true; }));
-      const dates = Object.keys(dateSet).sort();
-      saveSheet(students.map((s) => {
-        const r = { Name: s.name };
-        dates.forEach((d) => { r[d] = s.attendance[d] || ""; });
-        const rate = attendanceRate(s);
-        r["Attendance %"] = rate === null ? "" : rate;
-        return r;
-      }), "Attendance", "attendance", fmt);
-    }, () => alert("Could not load the Excel library. Check your connection and try again."));
-  }
-
-  // ---- Printable progress report (browser print dialog -> Save as PDF) ----
-  function printReport(code) {
-    const s = findStudent(code);
-    if (!s) return;
-    const rate = attendanceRate(s);
-    const counts = { present: 0, late: 0, absent: 0, excused: 0 };
-    Object.keys(s.attendance).forEach((d) => { if (counts[s.attendance[d]] !== undefined) counts[s.attendance[d]]++; });
-    const rows = s.grades.map((g) => `<tr><td>${escapeHtml(g.assignment)}</td><td>${g.score === null || g.score === undefined ? "—" : g.score + " / " + assignmentInfo(g.assignment).max}</td><td>${statusLabel(g.status)}</td></tr>`).join("");
-    const notes = s.notes.filter((n) => n.shared !== false).sort((a, b) => (a.date < b.date ? 1 : -1)).map((n) => `<li>${n.date} — ${escapeHtml(n.text)}</li>`).join("");
-    if (!document.getElementById("printStyle")) {
-      const st = document.createElement("style");
-      st.id = "printStyle";
-      st.textContent = "@media screen{#printArea{display:none}} @media print{body{background:#fff!important} body>*:not(#printArea){display:none!important} #printArea{display:block;color:#000;font-family:Arial,sans-serif;padding:24px} #printArea table{width:100%;border-collapse:collapse;margin:8px 0 16px} #printArea th,#printArea td{border:1px solid #999;padding:6px;text-align:left;font-size:13px}}";
-      document.head.appendChild(st);
-    }
-    let area = document.getElementById("printArea");
-    if (!area) { area = document.createElement("div"); area.id = "printArea"; document.body.appendChild(area); }
-    const cls = activeClass();
-    area.innerHTML = `
-      <h2 style="margin:0;">${escapeHtml(cls.name || "Class")} — Progress report</h2>
-      <div style="color:#555; margin-bottom:12px;">${escapeHtml([cls.subject, cls.term].filter(Boolean).join(" · "))} ${today}</div>
-      <h3 style="margin:0;">${escapeHtml(s.name)}</h3>
-      <div>Guardian: ${escapeHtml(s.guardian || "—")}</div>
-      <p><b>Attendance:</b> ${rate === null ? "—" : rate + "%"} (${counts.present} present, ${counts.late} late, ${counts.absent} absent, ${counts.excused} excused)<br>
-      <b>Overall average:</b> ${gradeAverageLabel(s)}</p>
-      <h4 style="margin-bottom:0;">Grades</h4>
-      ${rows ? `<table><thead><tr><th>Assignment</th><th>Score</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table>` : "<p>No assignments yet.</p>"}
-      <h4 style="margin-bottom:4px;">Teacher notes</h4>
-      ${notes ? `<ul>${notes}</ul>` : "<p>No notes shared.</p>"}`;
-    window.print();
-  }
-
-  // ---- Resources library: share links (free) + small files kept in Firestore (free, under 700 KB) ----
-  function attachResourcesListener() {
-    if (unsubscribeResources) unsubscribeResources();
-    unsubscribeResources = db.collection("resources").onSnapshot((snap) => {
-      resources = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-      if (view === "resources") render();
-    }, (err) => console.error("Resources listener error:", err));
-  }
-  function cleanUrl(u) {
-    u = (u || "").trim();
-    if (!u) return "";
-    if (!/^https?:\/\//i.test(u)) u = "https://" + u;
-    try { const x = new URL(u); return /^https?:$/.test(x.protocol) && x.hostname.indexOf(".") > 0 ? x.href : ""; } catch (e) { return ""; }
-  }
-  function linkSource(u) {
-    const h = ((u || "").match(/^https?:\/\/([^\/]+)/i) || [])[1] || "";
-    if (/drive\.google|docs\.google/.test(h)) return "Google Drive";
-    if (/youtube\.com|youtu\.be/.test(h)) return "YouTube";
-    if (/onedrive|1drv|sharepoint/.test(h)) return "OneDrive";
-    if (/dropbox/.test(h)) return "Dropbox";
-    return h.replace(/^www\./, "");
-  }
-  async function saveResource() {
-    const g = (id) => document.getElementById(id);
-    const title = g("rs-title").value.trim(), urlIn = g("rs-url").value.trim(), file = g("rs-file").files[0];
-    if (!title) { alert("Enter a title."); return; }
-    const url = cleanUrl(urlIn);
-    if (urlIn && !url) { alert("That doesn't look like a valid web link."); return; }
-    if (!url && !file) { alert("Add a link, or choose a small file."); return; }
-    if (file && file.size > 700 * 1024) { alert("Files must be under 700 KB. For larger files, upload to Google Drive and paste the share link instead."); return; }
-    const ai = g("rs-assign").value;
-    try {
-      const rec = { title, url, category: g("rs-cat").value, note: g("rs-note").value.trim(), assignment: ai === "" ? "" : (getAllAssignments()[Number(ai)] || ""), teacherOnly: g("rs-private").checked, classId: activeClassId, createdAt: new Date().toISOString() };
-      if (file) {
-        const data = await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(file); });
-        const ref = await db.collection("resourceFiles").add({ data });
-        rec.fileId = ref.id; rec.fileName = file.name;
-      }
-      await db.collection("resources").add(rec);
-      ["rs-title", "rs-url", "rs-note"].forEach((id) => { g(id).value = ""; });
-      g("rs-file").value = "";
-    } catch (err) { console.error(err); alert("Could not save the resource. Try again."); }
-  }
-  async function editResource(id) {
-    const r = resources.find((x) => x.id === id);
-    if (!r) return;
-    const title = prompt("Title:", r.title || "");
-    if (title === null || !title.trim()) return;
-    let url = r.url || "";
-    if (url || !r.fileId) {
-      const u = prompt("Link:", url);
-      if (u === null) return;
-      url = u.trim() ? cleanUrl(u) : "";
-      if (u.trim() && !url) { alert("That doesn't look like a valid web link."); return; }
-    }
-    const note = prompt("Note (optional):", r.note || "");
-    if (note === null) return;
-    if (!url && !r.fileId) { alert("A resource needs a link or a file."); return; }
-    try { await db.collection("resources").doc(id).set({ title: title.trim(), url, note: note.trim() }, { merge: true }); }
-    catch (err) { console.error(err); alert("Could not save changes. Try again."); }
-  }
-  async function toggleResourcePrivate(id) {
-    const r = resources.find((x) => x.id === id);
-    if (!r) return;
-    try { await db.collection("resources").doc(id).set({ teacherOnly: r.teacherOnly !== true }, { merge: true }); }
-    catch (err) { console.error(err); alert("Could not change visibility. Try again."); }
-  }
-  async function deleteResource(id) {
-    const r = resources.find((x) => x.id === id);
-    if (!r || !confirm('Delete "' + r.title + '"? This cannot be undone.')) return;
-    try {
-      if (r.fileId) await db.collection("resourceFiles").doc(r.fileId).delete();
-      await db.collection("resources").doc(id).delete();
-    } catch (err) { console.error(err); alert("Could not delete the resource. Try again."); }
-  }
-  function openResLink(id) { const r = resources.find((x) => x.id === id); if (r && r.url) window.open(r.url, "_blank", "noopener"); }
-  async function openResFile(id) {
-    const r = resources.find((x) => x.id === id);
-    if (!r || !r.fileId) return;
-    try {
-      const d = await db.collection("resourceFiles").doc(r.fileId).get();
-      if (!d.exists) { alert("File not found."); return; }
-      const dataUrl = d.data().data;
-      const bin = atob(dataUrl.split(",")[1]), mime = dataUrl.slice(5, dataUrl.indexOf(";"));
-      const bytes = new Uint8Array(bin.length);
-      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-      const a = document.createElement("a");
-      a.href = URL.createObjectURL(new Blob([bytes], { type: mime }));
-      a.download = r.fileName || "file";
-      document.body.appendChild(a); a.click(); a.remove();
-    } catch (err) { console.error(err); alert("Could not open the file."); }
-  }
-  function renderResources() {
-    const list = resources.filter((x) => (x.classId || "default") === activeClassId).sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
-    const assignOpts = '<option value="">Not attached to an assignment</option>' + getAllAssignments().map((a, i) => `<option value="${i}">${escapeHtml(a)}</option>`).join("");
-    const card = (r) => `
-      <div class="note-card">
-        <div style="display:flex; justify-content:space-between; gap:8px; flex-wrap:wrap; margin-bottom:4px;">
-          <div style="font-weight:600;">${escapeHtml(r.title)}</div>
-          <div>${r.teacherOnly ? '<span class="badge b-assigned">Teacher only</span>' : ''}</div>
-        </div>
-        ${r.note ? `<div style="color:var(--text2); font-size:13px; margin-bottom:6px;">${escapeHtml(r.note)}</div>` : ""}
-        <div class="note-date" style="margin-bottom:8px;">${r.url ? escapeHtml(linkSource(r.url)) : ""}${r.url && r.fileId ? " · " : ""}${r.fileId ? "File: " + escapeHtml(r.fileName || "attached") : ""}${r.assignment ? " · for " + escapeHtml(r.assignment) : ""}</div>
-        <div style="display:flex; gap:6px; flex-wrap:wrap;">
-          ${r.url ? `<button class="btn bp bsm" onclick="openResLink('${r.id}')">Open link</button>` : ""}
-          ${r.fileId ? `<button class="btn bp bsm" onclick="openResFile('${r.id}')">Download file</button>` : ""}
-          <button class="btn bs bsm" onclick="toggleResourcePrivate('${r.id}')">${r.teacherOnly ? "Show to parents" : "Hide from parents"}</button>
-          <button class="btn bs bsm" onclick="editResource('${r.id}')">Edit</button>
-          <button class="btn bd bsm" onclick="deleteResource('${r.id}')">Delete</button>
-        </div>
-      </div>`;
-    const groups = ["Worksheet", "Video", "Reading", "Other"].map((c) => {
-      const items = list.filter((r) => (r.category || "Other") === c);
-      return items.length ? `<div class="st" style="margin:18px 0 8px;">${c === "Other" ? "Other" : c + "s"}</div>${items.map(card).join("")}` : "";
-    }).join("");
-    return `
-      <div class="sh"><div class="st">Resources <span>${escapeHtml(activeClass().name || "")}</span></div></div>
-      <div class="form-box">
-        <div class="fg">
-          <div class="fgp"><label>Title</label><input id="rs-title" placeholder="e.g. Fractions practice sheet"></div>
-          <div class="fgp"><label>Category</label><select id="rs-cat"><option>Worksheet</option><option>Video</option><option>Reading</option><option>Other</option></select></div>
-          <div class="fgp full"><label>Link (Google Drive, YouTube, OneDrive…)</label><input id="rs-url" placeholder="https://"></div>
-          <div class="fgp full"><label>Or a small file (under 700 KB)</label><input type="file" id="rs-file" accept=".pdf,.png,.jpg,.jpeg,.doc,.docx,.txt,.xlsx,.pptx"></div>
-          <div class="fgp"><label>Note (optional)</label><input id="rs-note" placeholder="e.g. Do pages 1-2"></div>
-          <div class="fgp"><label>Attach to assignment</label><select id="rs-assign">${assignOpts}</select></div>
-        </div>
-        <label class="sans" style="display:flex; align-items:center; gap:6px; font-size:12px; margin:0;"><input type="checkbox" id="rs-private" style="width:auto;"> Teacher only (hide from parents)</label>
-        <div class="sans" style="font-size:12px; color:var(--text3);">Google Drive links must be set to "Anyone with the link can view", or parents will see an access-request screen. Hiding from parents only hides it in the app; it isn't secure while the database rules are open.</div>
-        <button class="btn bp" style="justify-self:start;" onclick="saveResource()">Add resource</button>
-      </div>
-      ${groups || `<div class="empty"><div class="eico">📎</div>No resources yet.</div>`}
-    `;
-  }
-
-  async function moveStudent(code) {
-    const s = findStudent(code);
-    if (!s) return;
-    const others = classesList.filter((c) => c.id !== activeClassId);
-    if (!others.length) { alert("Create another class first."); return; }
-    const pick = prompt("Move " + s.name + " to which class?\n" + others.map((c, i) => (i + 1) + ") " + (c.name || "Class")).join("\n") + "\nEnter a number:");
-    if (pick === null) return;
-    const target = others[Number(pick) - 1];
-    if (!target) { alert("Please enter one of the numbers listed."); return; }
-    try { await db.collection("students").doc(code).set({ classId: target.id }, { merge: true }); }
-    catch (err) { console.error(err); alert("Could not move the student. Try again."); }
-  }
-
-  function openProfile(code) { profileCode = code; setView("profile"); }
-
-  // Late counts as present (the child attended); excused days are left
-  // out of the rate entirely. Change the two rules here to change it everywhere.
-  function attendanceRate(s) {
-    const vals = Object.keys(s.attendance || {}).map((d) => s.attendance[d]).filter((v) => v !== "excused");
-    if (!vals.length) return null;
-    const attended = vals.filter((v) => v === "present" || v === "late").length;
-    return Math.round((attended / vals.length) * 100);
-  }
-
-  function renderProfile() {
-    const s = findStudent(profileCode);
-    const back = `<button class="btn bs" onclick="setView('roster')">&larr; Back to students</button>`;
-    if (!s) return `<div class="empty">Student not found.</div>${back}`;
-    const rate = attendanceRate(s);
-    const counts = { present: 0, absent: 0, late: 0, excused: 0 };
-    Object.keys(s.attendance).forEach((d) => { if (counts[s.attendance[d]] !== undefined) counts[s.attendance[d]]++; });
-    const scores = s.grades.map((g) => g.score).filter((v) => v !== null && v !== undefined);
-    const gradeRows = s.grades.map((g) => `<tr><td>${escapeHtml(g.assignment)}</td><td>${g.score === null || g.score === undefined ? "—" : g.score}</td><td><span class="badge b-${g.status || 'assigned'}">${statusLabel(g.status)}</span></td></tr>`).join("");
-    const notes = [...s.notes].sort((a, b) => (a.date < b.date ? 1 : -1)).map((n) => `
-      <div class="note-line"><span class="note-date">${n.date}</span><span class="badge ${catClass(n.category || 'general')}">${catLabel(n.category || 'general')}</span><span style="flex:1;">${escapeHtml(n.text)}</span>${n.shared === false ? '<span class="badge b-assigned">Private</span>' : ''}</div>`).join("");
-    return `
-      ${back}
-      <div class="sh" style="margin-top:14px;"><div class="st">${escapeHtml(s.name)} <span>Guardian: ${escapeHtml(s.guardian || "—")}</span></div></div>
-      <div style="margin-bottom:14px;"><button class="btn bp bsm" onclick="printReport('${s.accessCode}')">Print / save as PDF</button></div>
-      <div class="srow">
-        <div class="sc"><div class="slabel">Attendance</div><div class="sval">${rate === null ? "—" : rate + "%"}</div><div class="ssub">${counts.present} present · ${counts.late} late · ${counts.absent} absent · ${counts.excused} excused</div></div>
-        <div class="sc"><div class="slabel">Average</div><div class="sval">${gradeAverageLabel(s)}</div><div class="ssub">${scores.length} scored assignment${scores.length === 1 ? "" : "s"}</div></div>
-      </div>
-      <div class="st" style="margin:6px 0 10px;">Grades</div>
-      ${gradeRows ? `<div class="tw"><table><thead><tr><th>Assignment</th><th>Score</th><th>Status</th></tr></thead><tbody>${gradeRows}</tbody></table></div>` : `<div class="empty">No assignments yet.</div>`}
-      <div class="st" style="margin:22px 0 10px;">Notes</div>
-      ${notes || `<div class="empty">No notes yet.</div>`}
-      <div class="sans" style="font-size:12px; color:var(--text3); margin-top:18px;">Parent access code: <code>${s.accessCode}</code></div>
-    `;
-  }
-
-  function toggleSubmissionTracker(assignment) {
-    activeSubmissionAssignment = activeSubmissionAssignment === assignment ? null : assignment;
-    render();
-  }
-
-  // ---- Render: Notes ----
-  function renderNotes() {
-    const cards = students.map((s) => {
-      const sortedNotes = [...s.notes].sort((a, b) => (a.date < b.date ? 1 : -1));
-      const notesHtml = sortedNotes.map((n) => `
-        <div class="note-line">
-          <span class="note-date">${n.date}</span>
-          <span class="badge ${catClass(n.category || 'general')}">${catLabel(n.category || 'general')}</span>
-          <span style="flex:1;">${escapeHtml(n.text)}</span>
-          ${n.shared === false ? '<span class="badge b-assigned">Private</span>' : ''}
-          <button class="btn bs bsm" onclick="toggleNoteShared('${s.accessCode}','${n.id}')">${n.shared === false ? 'Share' : 'Hide'}</button>
-          <button class="btn bd bsm" onclick="deleteNote('${s.accessCode}','${n.id}')">Delete</button>
-        </div>
-      `).join("") || `<div class="note-line" style="border:none; padding-left:0; color:var(--text3);">No notes yet.</div>`;
-
-      return `
-        <div class="note-card">
-          <div style="font-weight:600; margin-bottom:10px;">${escapeHtml(s.name)}</div>
-          ${notesHtml}
-          <div style="display:flex; gap:8px; margin-top:10px; flex-wrap:wrap;">
-            <select class="note-cat-select" id="noteCat-${s.accessCode}">
-              <option value="general">General</option>
-              <option value="positive">Positive</option>
-              <option value="concern">Concern</option>
-            </select>
-            <input id="noteInput-${s.accessCode}" placeholder="Add a note..." style="flex:1; min-width:160px;" onkeydown="if(event.key==='Enter') addNote('${s.accessCode}')">
-            <label class="sans" style="display:flex; align-items:center; gap:4px; font-size:12px; margin:0;"><input type="checkbox" id="noteShared-${s.accessCode}" checked style="width:auto;"> Parent can see</label>
-            <button class="btn bp bsm" onclick="addNote('${s.accessCode}')">Add</button>
+          <div class="row" style="justify-content:flex-end">
+            <button class="btn" onclick="cancelBargain()">Cancel</button>
+            <button class="btn orange" onclick="approveAndIssueReceipt()">✅ Approve & Issue Receipt</button>
           </div>
         </div>
-      `;
-    }).join("");
-
-    return `
-      <div class="sh"><div class="st">Notes</div></div>
-      ${students.length ? cards : `<div class="empty"><div class="eico">📝</div>Add students first.</div>`}
-    `;
-  }
-
-  // ---- Render: Announcements ----
-  function renderAnnouncements() {
-    const cards = announcements.filter((a) => (a.classId || "default") === activeClassId).map((a) => {
-      const when = a.createdAt ? new Date(a.createdAt).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "";
-      return `
-        <div class="note-card">
-          <div style="display:flex; justify-content:space-between; align-items:baseline; gap:10px; margin-bottom:6px;">
-            <div style="font-weight:600; font-size:15px;">${escapeHtml(a.title || "(untitled)")}</div>
-            <button class="btn bd bsm" onclick="deleteAnnouncement('${a.id}')">Delete</button>
-          </div>
-          ${a.body ? `<div style="color:var(--text2); font-size:13px; line-height:1.5; margin-bottom:8px;">${escapeHtml(a.body)}</div>` : ""}
-          <div class="sans" style="font-size:11px; color:var(--text3);">${when}</div>
-        </div>
-      `;
-    }).join("");
-
-    return `
-      <div class="sh"><div class="st">Announcements <span>visible to all parents</span></div></div>
-
-      <div class="form-box">
-        <div class="fg">
-          <div class="fgp full"><label>Title</label><input id="newAnnouncementTitle" placeholder="e.g. Field trip next Friday"></div>
-        </div>
-        <div class="fg">
-          <div class="fgp full"><label>Details (optional)</label><input id="newAnnouncementBody" placeholder="e.g. Permission slips due Wednesday"></div>
-        </div>
-        <button class="btn bp" style="justify-self:start;" onclick="postAnnouncement()">Post announcement</button>
       </div>
+    </div>
 
-      ${cards ? cards : `<div class="empty"><div class="eico">📢</div>No announcements yet.</div>`}
-    `;
-  }
-
-  // ---- Render: Reports ----
-  function renderReports() {
-    // Attendance % per student, across every date Firestore has a record for.
-    const attendanceRows = students.map((s) => {
-      return { name: s.name, pct: attendanceRate(s), daysTracked: Object.keys(s.attendance).length };
-    }).sort((a, b) => (a.pct === null ? 1 : b.pct === null ? -1 : a.pct - b.pct)); // lowest attendance first — most actionable
-
-    const attendanceRowsHtml = attendanceRows.map((r) => `
-      <tr>
-        <td>${escapeHtml(r.name)}</td>
-        <td>${r.pct === null ? "—" : r.pct + "%"}</td>
-        <td class="sans" style="color:var(--text3); font-size:12px;">${r.daysTracked} day${r.daysTracked === 1 ? '' : 's'} tracked</td>
-      </tr>
-    `).join("");
-
-    // Missing work: any assignment not yet "submitted", "graded", or "returned".
-    const assignments = getAllAssignments();
-    const missingList = [];
-    students.forEach((s) => {
-      assignments.forEach((a) => {
-        const g = s.grades.find((g) => g.assignment === a);
-        const status = (g && g.status) || "assigned";
-        if (status === "assigned") missingList.push({ student: s.name, assignment: a });
-      });
-    });
-    const missingHtml = missingList.map((m) => `
-      <tr><td>${escapeHtml(m.student)}</td><td>${escapeHtml(m.assignment)}</td></tr>
-    `).join("");
-
-    // Grade distribution: simple bucket counts across every recorded score.
-    const allScores = [];
-    students.forEach((s) => s.grades.forEach((g) => { if (g.score !== null && g.score !== undefined) allScores.push(Math.round(g.score / assignmentInfo(g.assignment).max * 100)); }));
-    const buckets = [
-      { label: "90-100", min: 90, max: 100 },
-      { label: "80-89", min: 80, max: 89 },
-      { label: "70-79", min: 70, max: 79 },
-      { label: "60-69", min: 60, max: 69 },
-      { label: "Below 60", min: 0, max: 59 }
-    ];
-    const bucketCounts = buckets.map((b) => ({
-      ...b,
-      count: allScores.filter((v) => v >= b.min && v <= b.max).length
-    }));
-    const maxCount = Math.max(1, ...bucketCounts.map((b) => b.count));
-    const distributionHtml = bucketCounts.map((b) => `
-      <div style="display:flex; align-items:center; gap:10px; margin-bottom:8px;">
-        <div class="sans" style="width:70px; font-size:12px; color:var(--text2);">${b.label}</div>
-        <div style="flex:1; background:var(--surface2); border-radius:4px; height:18px; overflow:hidden;">
-          <div style="width:${(b.count / maxCount) * 100}%; background:var(--accent); height:100%;"></div>
+    <!-- ============ PRODUCTS ============ -->
+    <div id="page-products" class="hidden">
+      <div class="card">
+        <h2>📦 Products & Bales</h2>
+        <div class="kpi">
+          <div><b id="k-prod">0</b>Products</div>
+          <div><b id="k-low">0</b>Low Stock</div>
+          <div><b id="k-value">GHS 0</b>Stock Value</div>
         </div>
-        <div class="sans" style="width:24px; font-size:12px; text-align:right; color:var(--text2);">${b.count}</div>
-      </div>
-    `).join("");
-
-    return `
-      <div class="sh"><div class="st">Reports</div>
-        <div style="display:flex; gap:8px; flex-wrap:wrap;">
-          <button class="btn bs bsm" onclick="exportGrades()">⬇ Grades (Excel)</button>
-          <button class="btn bs bsm" onclick="exportGrades('csv')">⬇ Grades (CSV)</button>
-          <button class="btn bs bsm" onclick="exportAttendance()">⬇ Attendance (Excel)</button>
-          <button class="btn bs bsm" onclick="exportAttendance('csv')">⬇ Attendance (CSV)</button>
+        <div class="row">
+          <input id="prod-search" placeholder="Search..." oninput="renderProducts()" style="flex:1">
+          <button class="btn blue" onclick="openModal('productModal')">+ Add Product</button>
         </div>
+        <div style="overflow:auto"><table>
+          <thead><tr><th>SKU</th><th>Name</th><th>Category</th><th>Unit</th><th>Qty</th><th>Cost</th><th>Wholesale</th><th>Retail</th><th>Status</th><th>Actions</th></tr></thead>
+          <tbody id="prod-rows"></tbody>
+        </table></div>
       </div>
+    </div>
 
-      <div class="st" style="margin-bottom:4px;">Attendance rate</div>
-      <div class="sans" style="font-size:12px; color:var(--text3); margin-bottom:10px;">Late counts as present. Excused days are left out of the rate.</div>
-      ${students.length ? `
-        <div class="tw" style="margin-bottom:24px;"><table><thead><tr><th>Name</th><th>Present %</th><th></th></tr></thead><tbody>${attendanceRowsHtml}</tbody></table></div>
-      ` : `<div class="empty" style="margin-bottom:24px;">Add students first.</div>`}
-
-      <div class="st" style="margin-bottom:10px;">Missing work</div>
-      ${missingList.length ? `
-        <div class="tw" style="margin-bottom:24px;"><table><thead><tr><th>Student</th><th>Assignment</th></tr></thead><tbody>${missingHtml}</tbody></table></div>
-      ` : `<div class="empty" style="margin-bottom:24px;">Nothing outstanding — everything is submitted or graded.</div>`}
-
-      <div class="st" style="margin-bottom:10px;">Grade distribution</div>
-      ${allScores.length ? `<div class="tw" style="padding:18px;">${distributionHtml}</div>` : `<div class="empty">No scores recorded yet.</div>`}
-    `;
-  }
-
-  // ---- Render: Settings ----
-  function renderSettings() {
-    return `
-      <div class="sh"><div class="st">Settings</div></div>
-
-      <div class="tw" style="padding:20px; margin-bottom:16px;">
-        <div style="font-weight:600; margin-bottom:6px;">About this version</div>
-        <div style="color:var(--text2); font-size:13px; line-height:1.5;">
-          Offline-first version. Everything is saved on this device first and uploaded to the cloud when you're online, so it works with no signal. If two devices edit the same record, the most recent edit wins.
+    <!-- ============ CUSTOMERS ============ -->
+    <div id="page-customers" class="hidden">
+      <div class="card">
+        <h2>👥 Customers</h2>
+        <div class="row">
+          <input id="cust-search" placeholder="Search name / phone..." oninput="renderCustomers()" style="flex:1">
+          <button class="btn blue" onclick="openModal('customerModal')">+ Add Customer</button>
         </div>
+        <div style="overflow:auto"><table>
+          <thead><tr><th>Name</th><th>Phone</th><th>Type</th><th>Credit Owed</th><th>Actions</th></tr></thead>
+          <tbody id="cust-rows"></tbody>
+        </table></div>
       </div>
+    </div>
 
-      <div class="tw" style="padding:20px; margin-bottom:16px;">
-        <div style="font-weight:600; margin-bottom:10px;">Class settings</div>
-        <div class="fg" style="margin-bottom:10px;">
-          <div class="fgp"><label>Class name</label><input id="cs-name" value="${escapeHtml(activeClass().name || "")}"></div>
-          <div class="fgp"><label>Subject</label><input id="cs-subject" value="${escapeHtml(activeClass().subject || "")}"></div>
-          <div class="fgp"><label>Term / year</label><input id="cs-term" value="${escapeHtml(activeClass().term || "")}"></div>
+    <!-- ============ SALES HISTORY ============ -->
+    <div id="page-sales" class="hidden">
+      <div class="card">
+        <h2>🧾 Closed Sales</h2>
+        <div class="kpi">
+          <div><b id="k-sales-count">0</b>Sales</div>
+          <div><b id="k-sales-total">GHS 0</b>Revenue</div>
+          <div><b id="k-sales-profit">GHS 0</b>Est. Profit</div>
         </div>
-        <div style="font-size:12px; color:var(--text2); margin-bottom:6px;">Letter grade cut-offs (minimum %)</div>
-        <div style="display:flex; gap:8px; margin-bottom:12px;">
-          ${["A","B","C","D"].map((l) => `<div style="flex:1;"><label>${l}</label><input type="number" id="cs-${l}" value="${gradeScale()[l]}" min="0" max="100"></div>`).join("")}
+        <div style="overflow:auto"><table>
+          <thead><tr><th>Receipt</th><th>Date</th><th>Customer</th><th>Sales</th><th>Total</th><th>Method</th><th>Status</th><th></th></tr></thead>
+          <tbody id="sales-rows"></tbody>
+        </table></div>
+      </div>
+    </div>
+
+    <!-- ============ REPORTS ============ -->
+    <div id="page-reports" class="hidden">
+      <div class="card">
+        <h2>📊 Reports</h2>
+        <div class="grid2">
+          <div><h3>Today</h3><div id="rep-today"></div></div>
+          <div><h3>Top Products (All Time)</h3><div id="rep-top"></div></div>
         </div>
-        <button class="btn bp" onclick="saveClassSettings()">Save class settings</button>
+        <div class="row"><button class="btn" onclick="window.print()">🖨 Print</button></div>
       </div>
+    </div>
 
-      <div class="tw" style="padding:20px; margin-bottom:16px;">
-        <div style="font-weight:600; margin-bottom:6px;">Backup &amp; restore</div>
-        <div style="color:var(--text2); font-size:13px; margin-bottom:12px; line-height:1.5;">A backup is a copy of this device's data. Restoring adds it back and uploads it. It also accepts backups from the offline-only version.</div>
-        <input type="file" id="localRestoreInput" accept="application/json" class="hidden" onchange="localBackupImport(event)">
-        <button class="btn bp" onclick="localBackupExport()">⬇ Download backup</button>
-        <button class="btn bs" onclick="document.getElementById('localRestoreInput').click()">⬆ Restore backup</button>
-      </div>
+    <p class="note">Wholesale Cloth & Bale POS — two-role demo. Data saved in this browser.</p>
+  </div>
+</div>
 
-      <div class="tw" style="padding:20px; border-color:var(--danger);">
-        <div style="font-weight:600; margin-bottom:6px; color:var(--danger);">⚠ Reset everything</div>
-        <div style="color:var(--text2); font-size:13px; margin-bottom:14px; line-height:1.5;">
-          Permanently deletes every student, attendance record, grade, assignment, and note from this device and, once online, from the cloud for everyone. Also clears this device's PIN. This cannot be undone.
-          <br><br>
-          Use this if the app gets stuck or you want to start completely fresh during testing. Not meant for routine use once this is handling real class data.
-        </div>
-        <button class="btn bd" onclick="resetEverything()">Reset app — delete all data</button>
-      </div>
-    `;
-  }
+<!-- ============ MODALS ============ -->
+<div id="productModal" class="modal-bg hidden" onclick="if(event.target===this)closeModal('productModal')">
+  <div class="modal">
+    <h2 id="prod-modal-title">+ Add Product</h2>
+    <input type="hidden" id="p-edit-id">
+    <div class="grid2">
+      <div><label>Name *</label><input id="p-name" placeholder="e.g. Adult T-Shirt"></div>
+      <div><label>SKU</label><input id="p-sku" placeholder="auto if blank"></div>
+      <div><label>Category</label><select id="p-cat"><option>Clothing</option><option>Accessories</option><option>Household</option><option>Kids</option><option>Ladies</option><option>Men</option></select></div>
+      <div><label>Unit</label><select id="p-unit"><option>bale</option><option>dozen</option><option>piece</option></select></div>
+      <div><label>Qty</label><input id="p-qty" type="number" value="0" min="0"></div>
+      <div><label>Reorder Level</label><input id="p-reorder" type="number" value="5" min="0"></div>
+      <div><label>Cost Price (GHS)</label><input id="p-cost" type="number" value="0" step="0.01" min="0"></div>
+      <div><label>Wholesale Price (GHS)</label><input id="p-whole" type="number" value="0" step="0.01" min="0"></div>
+      <div><label>Retail Price (GHS)</label><input id="p-retail" type="number" value="0" step="0.01" min="0"></div>
+      <div><label>Supplier</label><input id="p-supplier" placeholder="e.g. Import Co."></div>
+    </div>
+    <div class="row" style="justify-content:flex-end;margin-top:14px">
+      <button class="btn" onclick="closeModal('productModal')">Cancel</button>
+      <button class="btn primary" onclick="saveProduct()">💾 Save</button>
+    </div>
+  </div>
+</div>
 
-  async function resetEverything() {
-    const confirm1 = confirm("This will permanently delete ALL students, attendance, grades, and notes from the cloud database — for every device, not just this one. Continue?");
-    if (!confirm1) return;
-    const confirm2 = confirm("Really sure? This cannot be undone. Type-check: tap OK only if you want a completely clean slate.");
-    if (!confirm2) return;
+<div id="customerModal" class="modal-bg hidden" onclick="if(event.target===this)closeModal('customerModal')">
+  <div class="modal">
+    <h2>+ Add Customer</h2>
+    <div class="grid2">
+      <div><label>Name *</label><input id="c-name" placeholder="e.g. Ama Retailer"></div>
+      <div><label>Phone</label><input id="c-phone" placeholder="020 000 0000"></div>
+      <div><label>Type</label><select id="c-type"><option>Retailer</option><option>Wholesaler</option><option>Walk-in</option></select></div>
+      <div><label>Address</label><input id="c-addr" placeholder="Town / market"></div>
+    </div>
+    <div class="row" style="justify-content:flex-end;margin-top:14px">
+      <button class="btn" onclick="closeModal('customerModal')">Cancel</button>
+      <button class="btn primary" onclick="saveCustomer()">💾 Save</button>
+    </div>
+  </div>
+</div>
 
-    const main = document.getElementById("main");
-    main.innerHTML = `<div class="empty">Resetting… please wait, this may take a moment.</div>`;
+<div id="receiptModal" class="modal-bg hidden" onclick="if(event.target===this)closeModal('receiptModal')">
+  <div class="modal">
+    <h2>🧾 Receipt</h2>
+    <div class="receipt" id="receipt-text"></div>
+    <div class="row" style="justify-content:flex-end;margin-top:14px">
+      <button class="btn" onclick="closeModal('receiptModal')">Close</button>
+      <button class="btn primary" onclick="window.print()">🖨 Print</button>
+    </div>
+  </div>
+</div>
 
-    try {
-      // Gather every doc reference to delete first (reads are cheap and
-      // fast in parallel), then delete everything in batched chunks of
-      // 450 (Firestore's batch cap is 500) — much faster than the old
-      // one-document-at-a-time approach, and it also shrinks the window
-      // where a failure partway through could leave things half-deleted.
-      const refsToDelete = [];
+<script>
+/* ================= STORAGE ================= */
+const DB = {
+  get(k, d){ try{ return JSON.parse(localStorage.getItem('pos_'+k)) ?? d; }catch(e){ return d; } },
+  set(k, v){ localStorage.setItem('pos_'+k, JSON.stringify(v)); }
+};
 
-      const studentsSnap = await db.collection("students").get();
-      const subcollections = ["attendance", "grades", "notes"];
-      await Promise.all(studentsSnap.docs.map(async (studentDoc) => {
-        const subSnaps = await Promise.all(
-          subcollections.map((sub) => studentDoc.ref.collection(sub).get())
-        );
-        subSnaps.forEach((snap) => snap.docs.forEach((d) => refsToDelete.push(d.ref)));
-        refsToDelete.push(studentDoc.ref);
-      }));
+const USERS = [
+  {username:'sales1',    password:'demo', role:'sales',    name:'Kofi Mensah (Sales)'},
+  {username:'accounts1', password:'demo', role:'accounts', name:'Ama Owusu (Accounts)'},
+];
 
-      const assignmentsSnap = await db.collection("assignments").get();
-      assignmentsSnap.docs.forEach((d) => refsToDelete.push(d.ref));
+// PRODUCTS FROM YOUR IMAGE (with adjusted prices and quantities)
+let products = DB.get('products', [
+  {id:'P1', sku:'AD-TS', name:'ADULT T. SHIRT', cat:'Clothing', unit:'piece', qty:15, reorder:5, cost:1800, whole:2000, retail:2200, supplier:'Import Co.'},
+  {id:'P2', sku:'AD-TS-B', name:'ADULT T. SHIRT( B)', cat:'Clothing', unit:'piece', qty:30, reorder:10, cost:1900, whole:2200, retail:2400, supplier:'Import Co.'},
+  {id:'P3', sku:'AS-WR', name:'ASIAN WEAR', cat:'Clothing', unit:'piece', qty:8, reorder:3, cost:500, whole:650, retail:800, supplier:'Import Co.'},
+  {id:'P4', sku:'B-BLK', name:'B BLANKET', cat:'Household', unit:'piece', qty:10, reorder:4, cost:600, whole:800, retail:1000, supplier:'Import Co.'},
+  {id:'P5', sku:'BY-CL', name:'BABY CLOTHES', cat:'Kids', unit:'bale', qty:5, reorder:2, cost:2000, whole:2500, retail:2800, supplier:'Import Co.'},
+  {id:'P6', sku:'BLT', name:'BELTS', cat:'Accessories', unit:'piece', qty:50, reorder:10, cost:1200, whole:1500, retail:1800, supplier:'Import Co.'},
+  {id:'P7', sku:'BIG', name:'BIG', cat:'Clothing', unit:'piece', qty:12, reorder:5, cost:700, whole:900, retail:1100, supplier:'Import Co.'},
+  {id:'P8', sku:'BY-NT', name:'BABY NIT', cat:'Kids', unit:'piece', qty:25, reorder:10, cost:600, whole:850, retail:1000, supplier:'Import Co.'},
+  {id:'P9', sku:'BD-ST', name:'BODY SUIT', cat:'Kids', unit:'piece', qty:6, reorder:2, cost:4000, whole:4800, retail:5500, supplier:'Import Co.'},
+  {id:'P10', sku:'BY-PNT', name:'BOYS MIXED PANTS 200PCS', cat:'Kids', unit:'bale', qty:4, reorder:2, cost:1500, whole:1800, retail:2200, supplier:'Import Co.'},
+  {id:'P11', sku:'BY-SHT', name:'BOYS SHIRT', cat:'Kids', unit:'piece', qty:7, reorder:3, cost:5000, whole:6000, retail:7000, supplier:'Import Co.'},
+  {id:'P12', sku:'BRS', name:'BRASSIER', cat:'Ladies', unit:'piece', qty:15, reorder:5, cost:3000, whole:3500, retail:4000, supplier:'Import Co.'},
+  {id:'P13', sku:'CCR', name:'CCR', cat:'Clothing', unit:'piece', qty:20, reorder:8, cost:4500, whole:5500, retail:6000, supplier:'Import Co.'},
+  {id:'P14', sku:'CH-RM', name:'CHILD MEDIUM RIMM', cat:'Kids', unit:'piece', qty:20, reorder:10, cost:1800, whole:2200, retail:2500, supplier:'Import Co.'},
+  {id:'P15', sku:'CH-PNT', name:'CHILD PANTS', cat:'Kids', unit:'piece', qty:30, reorder:10, cost:4000, whole:5200, retail:6000, supplier:'Import Co.'},
+  {id:'P16', sku:'CH-ST', name:'CHILD SUITS', cat:'Kids', unit:'piece', qty:15, reorder:5, cost:3500, whole:4200, retail:5000, supplier:'Import Co.'},
+  {id:'P17', sku:'CH-TS', name:'CHILD\'S T SHIRT', cat:'Kids', unit:'piece', qty:40, reorder:15, cost:2000, whole:2600, retail:3000, supplier:'Import Co.'},
+  {id:'P18', sku:'CH-SW', name:'CHILD SWEATER', cat:'Kids', unit:'piece', qty:25, reorder:10, cost:200, whole:350, retail:500, supplier:'Import Co.'},
+  {id:'P19', sku:'CH-TRK', name:'CHILDREN TRACKSUIT', cat:'Kids', unit:'piece', qty:18, reorder:5, cost:500, whole:700, retail:900, supplier:'Import Co.'},
+  {id:'P20', sku:'DN-JK', name:'DENIM JACKET', cat:'Clothing', unit:'piece', qty:10, reorder:3, cost:1000, whole:1300, retail:1600, supplier:'Import Co.'},
+  {id:'P21', sku:'DN-SH', name:'DENIM SHORT', cat:'Clothing', unit:'piece', qty:22, reorder:8, cost:1500, whole:1800, retail:2100, supplier:'Import Co.'},
+  {id:'P22', sku:'FL-HT', name:'FELT HAT', cat:'Accessories', unit:'piece', qty:15, reorder:5, cost:1200, whole:1500, retail:1800, supplier:'Import Co.'},
+  {id:'P23', sku:'FC-CP', name:'FACE CAPS', cat:'Accessories', unit:'piece', qty:35, reorder:10, cost:1800, whole:2200, retail:2500, supplier:'Import Co.'},
+  {id:'P24', sku:'GRD', name:'GIRDLE', cat:'Ladies', unit:'piece', qty:12, reorder:5, cost:4500, whole:5500, retail:6000, supplier:'Import Co.'},
+  {id:'P25', sku:'GL-DR', name:'GIRLS DRESS', cat:'Kids', unit:'piece', qty:16, reorder:6, cost:3800, whole:4800, retail:5500, supplier:'Import Co.'},
+  {id:'P26', sku:'HW-PNT', name:'HAWAII PANTS', cat:'Clothing', unit:'piece', qty:14, reorder:5, cost:3500, whole:4500, retail:5200, supplier:'Import Co.'},
+  {id:'P27', sku:'HV-CT', name:'HEAVY COTTON RUMMAGE', cat:'Clothing', unit:'bale', qty:3, reorder:1, cost:700, whole:900, retail:1100, supplier:'Import Co.'},
+  {id:'P28', sku:'HV-HH', name:'HEAVY HOUSEHOLD RUMM', cat:'Household', unit:'bale', qty:8, reorder:3, cost:500, whole:700, retail:900, supplier:'Import Co.'},
+  {id:'P29', sku:'LD-CB', name:'LADIES COTTON BLOUSE', cat:'Ladies', unit:'piece', qty:28, reorder:10, cost:1000, whole:1300, retail:1500, supplier:'Import Co.'},
+  {id:'P30', sku:'LD-CD', name:'LADIES COTTON DRESS', cat:'Ladies', unit:'piece', qty:18, reorder:5, cost:3500, whole:4500, retail:5000, supplier:'Import Co.'},
+  {id:'P31', sku:'LD-CP', name:'LADIES COTTON PANTS 200PCS', cat:'Ladies', unit:'bale', qty:5, reorder:2, cost:1500, whole:1900, retail:2200, supplier:'Import Co.'},
+  {id:'P32', sku:'LD-CS', name:'LADIES COTTON SKIRT', cat:'Ladies', unit:'piece', qty:20, reorder:6, cost:1500, whole:1900, retail:2100, supplier:'Import Co.'},
+  {id:'P33', sku:'LD-PN', name:'LADIES POLO NIGHT DRESS', cat:'Ladies', unit:'piece', qty:15, reorder:5, cost:1500, whole:1900, retail:2100, supplier:'Import Co.'},
+  {id:'P34', sku:'LD-CND', name:'LADIES COTTON NIGHT DRESS', cat:'Ladies', unit:'piece', qty:22, reorder:8, cost:1600, whole:2000, retail:2300, supplier:'Import Co.'},
+  {id:'P35', sku:'LD-MD', name:'LADIES MIXED DRESS', cat:'Ladies', unit:'piece', qty:10, reorder:4, cost:2200, whole:2800, retail:3200, supplier:'Import Co.'},
+  {id:'P36', sku:'LD-PD', name:'LADIES POLO DRESS', cat:'Ladies', unit:'piece', qty:12, reorder:5, cost:3500, whole:4200, retail:4800, supplier:'Import Co.'},
+  {id:'P37', sku:'LD-SB', name:'LADIES SILK BLOUSE', cat:'Ladies', unit:'piece', qty:24, reorder:10, cost:1400, whole:1700, retail:2000, supplier:'Import Co.'},
+  {id:'P38', sku:'LD-SPD', name:'LADIES SILK POLY DRESS', cat:'Ladies', unit:'piece', qty:9, reorder:3, cost:4500, whole:5500, retail:6000, supplier:'Import Co.'},
+  {id:'P39', sku:'LD-PS', name:'LADIES POLY SKIRT', cat:'Ladies', unit:'piece', qty:14, reorder:5, cost:3000, whole:3800, retail:4200, supplier:'Import Co.'},
+  {id:'P40', sku:'LD-ST', name:'LADIES SUIT', cat:'Ladies', unit:'piece', qty:5, reorder:2, cost:3500, whole:4200, retail:4800, supplier:'Import Co.'},
+  {id:'P41', sku:'LD-TS', name:'LADIES T. SHIRT', cat:'Ladies', unit:'piece', qty:32, reorder:10, cost:1000, whole:1300, retail:1500, supplier:'Import Co.'},
+  {id:'P42', sku:'LD-TG', name:'LADIES TERGAL SKIRT', cat:'Ladies', unit:'piece', qty:18, reorder:5, cost:250, whole:400, retail:600, supplier:'Import Co.'},
+  {id:'P43', sku:'LG-AD', name:'LEGGINGS ADULT', cat:'Ladies', unit:'piece', qty:40, reorder:15, cost:800, whole:1100, retail:1400, supplier:'Import Co.'},
+  {id:'P44', sku:'LT-HH', name:'LIGHT HOUSEHOLD TWL', cat:'Household', unit:'bale', qty:6, reorder:2, cost:1200, whole:1500, retail:1800, supplier:'Import Co.'}
+]);
 
-      const announcementsSnap = await db.collection("announcements").get();
-      announcementsSnap.docs.forEach((d) => refsToDelete.push(d.ref));
-      const eventsSnap = await db.collection("events").get();
-      eventsSnap.docs.forEach((d) => refsToDelete.push(d.ref));
-      const resSnap = await db.collection("resources").get();
-      resSnap.docs.forEach((d) => refsToDelete.push(d.ref));
-      const resFilesSnap = await db.collection("resourceFiles").get();
-      resFilesSnap.docs.forEach((d) => refsToDelete.push(d.ref));
-      const classesSnap = await db.collection("classes").get();
-      classesSnap.docs.forEach((d) => refsToDelete.push(d.ref));
+let customers = DB.get('customers', [
+  {id:'C1', name:'Ama Retailer', phone:'020 111 0001', type:'Retailer', addr:'Accra', credit:0},
+  {id:'C2', name:'Kwame Wholesaler', phone:'020 111 0002', type:'Wholesaler', addr:'Kumasi', credit:0},
+  {id:'C3', name:'Walk-in Customer', phone:'—', type:'Walk-in', addr:'—', credit:0},
+]);
+let sales = DB.get('sales', []);
+let orders = DB.get('orders', []); 
+let cart = [];
+let selCustomer = customers[0]?.id || '';
+let currentUser = null;
 
-      const CHUNK_SIZE = 450;
-      for (let i = 0; i < refsToDelete.length; i += CHUNK_SIZE) {
-        const batch = db.batch();
-        refsToDelete.slice(i, i + CHUNK_SIZE).forEach((ref) => batch.delete(ref));
-        await batch.commit();
+/* ================= HELPERS ================= */
+// Generate numbers like 20261119-001
+function getNextNumber(prefix, dataArray) {
+  const today = new Date();
+  const dateStr = today.getFullYear().toString() +
+                  String(today.getMonth() + 1).padStart(2, '0') +
+                  String(today.getDate()).padStart(2, '0');
+  
+  // Find items created today
+  const todayStr = today.toDateString();
+  const todayItems = dataArray.filter(x => new Date(x.date).toDateString() === todayStr);
+  
+  let maxSeq = 0;
+  todayItems.forEach(item => {
+    const id = item.id || item.receiptNo;
+    if(id && id.startsWith(prefix + dateStr)) {
+      const parts = id.split('-');
+      if(parts.length === 2) {
+        const seq = parseInt(parts[1], 10);
+        if(seq > maxSeq) maxSeq = seq;
       }
-
-      // Clear local PIN so the next open starts the "set a new PIN" flow.
-      localStorage.removeItem(PIN_KEY);
-
-      alert("Reset complete. The app will now reload.");
-      location.reload();
-    } catch (err) {
-      console.error(err);
-      main.innerHTML = `<div class="banner error">Reset failed partway through: ${escapeHtml(err.message)}. Some data may have been deleted. Check the Students page and try again if needed.</div>`;
     }
+  });
+  
+  const nextSeq = String(maxSeq + 1).padStart(3, '0');
+  return prefix + dateStr + '-' + nextSeq;
+}
+
+/* ================= LOGIN ================= */
+function quickLogin(role){
+  const u = USERS.find(x=>x.role===role);
+  document.getElementById('login-user').value = u.username;
+  document.getElementById('login-pass').value = u.password;
+  doLogin();
+}
+function doLogin(){
+  const u = document.getElementById('login-user').value.trim();
+  const p = document.getElementById('login-pass').value;
+  const match = USERS.find(x=>x.username===u && x.password===p);
+  if(!match){ alert('Invalid credentials (demo).'); return; }
+  currentUser = match;
+  document.getElementById('page-login').classList.add('hidden');
+  document.getElementById('page-app').classList.remove('hidden');
+  document.getElementById('top-user').textContent = match.name;
+  buildNav();
+  if(match.role==='sales') showPage('pos');
+  else showPage('accounts');
+}
+function logout(){
+  currentUser = null;
+  document.getElementById('page-app').classList.add('hidden');
+  document.getElementById('page-login').classList.remove('hidden');
+  document.getElementById('login-pass').value = '';
+  document.getElementById('top-user').textContent = 'NOT LOGGED IN';
+}
+
+/* ================= NAV ================= */
+function buildNav(){
+  const role = currentUser.role;
+  const items = role==='sales'
+    ? [['pos','🛒 POS'],['products','📦 Products'],['customers','👥 Customers'],['sales','🧾 My Sales'],['reports','📊 Reports']]
+    : [['accounts','💰 Bargain / Accounts'],['products','📦 Products'],['customers','👥 Customers'],['sales','🧾 Sales History'],['reports','📊 Reports']];
+  document.getElementById('nav').innerHTML = items.map(([p,l])=>
+    `<button id="nav-${p}" onclick="showPage('${p}')">${l}</button>`).join('') +
+    `<span class="who">👤 <b>${currentUser.name}</b> · <button class="btn sm red" onclick="logout()">Logout</button></span>`;
+}
+function showPage(p){
+  const pages = ['pos','accounts','products','customers','sales','reports'];
+  pages.forEach(x=>{ const el=document.getElementById('page-'+x); if(el) el.classList.toggle('hidden',x!==p); });
+  pages.forEach(x=>{ const b=document.getElementById('nav-'+x); if(b) b.classList.toggle('active',x===p); });
+  if(p==='pos') renderPos();
+  if(p==='accounts') renderAccounts();
+  if(p==='products') renderProducts();
+  if(p==='customers') renderCustomers();
+  if(p==='sales') renderSales();
+  if(p==='reports') renderReports();
+}
+
+/* ================= SALES: POS ================= */
+function renderPos(){
+  const catSel = document.getElementById('pos-cat');
+  const cats = [...new Set(products.map(p=>p.cat))];
+  catSel.innerHTML = '<option value="">All Categories</option>'+cats.map(c=>`<option>${c}</option>`).join('');
+  const custSel = document.getElementById('pos-customer');
+  custSel.innerHTML = customers.map(c=>`<option value="${c.id}" ${c.id===selCustomer?'selected':''}>${c.name}</option>`).join('');
+  renderPosProducts();
+  renderCart();
+  renderSalesOrders();
+}
+function renderPosProducts(){
+  const q = (document.getElementById('pos-search').value||'').toLowerCase();
+  const cat = document.getElementById('pos-cat').value;
+  const list = products.filter(p=>{
+    const hay = (p.name+' '+p.sku+' '+p.cat).toLowerCase();
+    return hay.includes(q) && (!cat || p.cat===cat);
+  });
+  document.getElementById('pos-products').innerHTML = list.map(p=>`
+    <div class="cart-item" style="cursor:pointer" onclick="addToCart('${p.id}')">
+      <div><b>${p.name}</b><br><span style="font-size:11px;color:#666">${p.sku} · ${p.unit} · stock: ${p.qty}</span></div>
+      <div style="text-align:right"><b>GHS ${p.whole.toFixed(2)}</b><br>
+        <span style="font-size:11px">${p.qty<=p.reorder?'<span class="st-low">LOW</span>':'<span class="st-ok">OK</span>'}</span></div>
+    </div>`).join('') || '<p style="text-align:center;color:#777">No products match.</p>';
+}
+function addToCart(id){
+  const p = products.find(x=>x.id===id); if(!p) return;
+  if(p.qty<=0){ alert('Out of stock (demo).'); return; }
+  const line = cart.find(c=>c.id===id);
+  if(line){ if(line.qty>=p.qty){ alert('Not enough stock.'); return; } line.qty++; }
+  else cart.push({id, name:p.name, price:p.whole, qty:1, cost:p.cost});
+  renderCart();
+}
+function renderCart(){
+  document.getElementById('cart').innerHTML = cart.map((c,i)=>`
+    <div class="cart-item">
+      <div><b>${c.name}</b><br><span style="font-size:11px">GHS ${c.price.toFixed(2)}</span></div>
+      <div class="qty">
+        <button onclick="chQty(${i},-1)">−</button><span>${c.qty}</span>
+        <button onclick="chQty(${i},1)">+</button>
+        <button style="background:#f8d7da" onclick="rmCart(${i})">✕</button>
+      </div>
+    </div>`).join('') || '<p style="text-align:center;color:#777;font-size:13px">Cart is empty. Click a product.</p>';
+  const sub = cart.reduce((a,c)=>a+c.price*c.qty,0);
+  document.getElementById('t-sub').textContent = 'GHS '+sub.toFixed(2);
+  document.getElementById('t-grand').textContent = 'GHS '+sub.toFixed(2);
+  document.getElementById('btn-send').disabled = cart.length===0;
+}
+function chQty(i,d){
+  const line = cart[i]; const p = products.find(x=>x.id===line.id);
+  if(d>0 && line.qty>=p.qty){ alert('Not enough stock.'); return; }
+  line.qty += d; if(line.qty<=0) cart.splice(i,1);
+  renderCart();
+}
+function rmCart(i){ cart.splice(i,1); renderCart(); }
+function clearCart(){ cart=[]; renderCart(); }
+
+/* ---- Salesperson sends order to Accounts ---- */
+function sendToAccounts(){
+  if(!cart.length){ alert('Cart is empty.'); return; }
+  const cust = customers.find(c=>c.id===selCustomer);
+  if(!cust){ alert('Select a customer.'); return; }
+  
+  const proposed = cart.reduce((a,c)=>a+c.price*c.qty,0);
+  
+  // Generate Order Number in format: 20261119-001
+  const orderId = getNextNumber('', orders);
+
+  const order = {
+    id: orderId,
+    date: new Date().toISOString(),
+    salesperson: currentUser.name,
+    customerId: cust.id, customerName: cust.name,
+    items: cart.map(c=>({...c})),
+    proposed, discount: 0, finalTotal: proposed,
+    receiptNo: '', method: '',
+    status: 'pending',
+  };
+  orders.unshift(order);
+  DB.set('orders', orders);
+  clearCart();
+  document.getElementById('pos-msg').innerHTML = '<div class="success">📤 Order <b>'+order.id+'</b> sent to Accounts. Wait for receipt.</div>';
+  renderSalesOrders();
+}
+function renderSalesOrders(){
+  const mine = orders.filter(o=>o.salesperson===currentUser.name && o.status!=='closed');
+  document.getElementById('sales-orders-rows').innerHTML = mine.map(o=>`
+    <tr>
+      <td>${o.id}</td><td>${o.customerName}</td><td>${o.items.length}</td>
+      <td>GHS ${o.proposed.toFixed(2)}</td>
+      <td>${o.status==='pending'?'—':'GHS '+o.finalTotal.toFixed(2)}</td>
+      <td>${o.receiptNo||'—'}</td>
+      <td>${o.status==='pending'?'<span class="st-pend">Pending Accounts</span>':'<span class="st-await">Awaiting Confirmation</span>'}</td>
+      <td>
+        ${o.status==='awaiting_confirm'
+          ? `<button class="btn primary sm" onclick="confirmReceipt('${o.id}')">✅ Confirm & Complete Sale</button>`
+          : `<span style="font-size:11px;color:#777">Waiting for accounts…</span>`}
+      </td>
+    </tr>`).join('') || '<tr><td colspan="8" style="text-align:center;color:#777">No active orders. Build a cart and send to accounts.</td></tr>';
+}
+
+/* ---- Salesperson confirms receipt & closes sale ---- */
+function confirmReceipt(orderId){
+  const o = orders.find(x=>x.id===orderId);
+  if(!o) return;
+  if(!confirm('Confirm you have received receipt '+o.receiptNo+' from customer '+o.customerName+'? This will close the sale.')) return;
+  for(const it of o.items){
+    const p = products.find(x=>x.id===it.id);
+    if(!p || p.qty < it.qty){ alert('Stock issue: '+it.name+' no longer has enough stock.'); return; }
   }
-
-  function render() {
-    document.querySelectorAll(".nb").forEach((btn) => btn.classList.toggle("active", btn.dataset.view === view));
-    const main = document.getElementById("main");
-    if (view === "dashboard") main.innerHTML = renderDashboard();
-    else if (view === "roster") main.innerHTML = renderRoster();
-    else if (view === "attendance") main.innerHTML = renderAttendance();
-    else if (view === "grades") main.innerHTML = renderGrades();
-    else if (view === "notes") main.innerHTML = renderNotes();
-    else if (view === "announcements") main.innerHTML = renderAnnouncements();
-    else if (view === "reports") main.innerHTML = renderReports();
-    else if (view === "profile") main.innerHTML = renderProfile();
-    else if (view === "calendar") main.innerHTML = renderCalendar();
-    else if (view === "resources") main.innerHTML = renderResources();
-    else if (view === "settings") main.innerHTML = renderSettings();
+  o.items.forEach(it=>{ const p=products.find(x=>x.id===it.id); if(p) p.qty -= it.qty; });
+  
+  const sale = {
+    id: o.receiptNo, 
+    date: new Date().toISOString(),
+    customer: o.customerName, customerId: o.customerId,
+    salesperson: o.salesperson,
+    items: o.items, subtotal: o.proposed, discount: o.discount,
+    tax: 0, total: o.finalTotal, paid: o.method==='Credit'?0:o.finalTotal,
+    method: o.method, status: o.method==='Credit'?'Credit':'Paid',
+    profit: o.items.reduce((a,c)=>a+(c.price-c.cost)*c.qty,0) - o.discount
+  };
+  sales.unshift(sale);
+  if(o.method==='Credit'){
+    const cu = customers.find(c=>c.id===o.customerId);
+    if(cu) cu.credit += o.finalTotal;
   }
+  o.status = 'closed';
+  DB.set('products', products); DB.set('customers', customers);
+  DB.set('sales', sales); DB.set('orders', orders);
+  document.getElementById('pos-msg').innerHTML = '<div class="success">✅ Sale closed — receipt <b>'+o.receiptNo+'</b> stored. Stock updated.</div>';
+  renderSalesOrders();
+}
 
-  document.querySelectorAll(".nb").forEach((btn) => btn.addEventListener("click", () => setView(btn.dataset.view)));
+/* ================= ACCOUNTS ================= */
+let bargainOrderId = null;
+function renderAccounts(){
+  const pend = orders.filter(o=>o.status==='pending');
+  const awaitC = orders.filter(o=>o.status==='awaiting_confirm');
+  const todayClosed = orders.filter(o=>o.status==='closed' && new Date(o.date).toDateString()===new Date().toDateString());
+  document.getElementById('acc-kpi-pend').textContent = pend.length;
+  document.getElementById('acc-kpi-await').textContent = awaitC.length;
+  document.getElementById('acc-kpi-closed').textContent = todayClosed.length;
 
-  initPinScreen();
-  renderPinDots();
+  const all = [...pend, ...awaitC];
+  document.getElementById('acc-orders-rows').innerHTML = all.map(o=>`
+    <tr>
+      <td>${o.id}</td><td>${o.salesperson}</td><td>${o.customerName}</td><td>${o.items.length}</td>
+      <td>GHS ${o.proposed.toFixed(2)}</td>
+      <td>${o.status==='pending'?'—':'GHS '+o.finalTotal.toFixed(2)}</td>
+      <td>${o.receiptNo||'—'}</td>
+      <td>${o.status==='pending'?'<span class="st-pend">Pending</span>':'<span class="st-await">Awaiting Sales</span>'}</td>
+      <td>
+        ${o.status==='pending'
+          ? `<button class="btn orange sm" onclick="openBargain('${o.id}')">Bargain →</button>`
+          : `<span style="font-size:11px;color:#777">Receipt issued</span>`}
+      </td>
+    </tr>`).join('') || '<tr><td colspan="9" style="text-align:center;color:#777">No pending orders.</td></tr>';
+}
+function openBargain(orderId){
+  bargainOrderId = orderId;
+  const o = orders.find(x=>x.id===orderId); if(!o) return;
+  document.getElementById('acc-order-no').value = o.id;
+  document.getElementById('acc-cust').value = o.customerName;
+  document.getElementById('acc-sales').value = o.salesperson;
+  document.getElementById('acc-items-rows').innerHTML = o.items.map(it=>`
+    <tr><td>${it.name}</td><td>${it.qty}</td><td>GHS ${it.price.toFixed(2)}</td><td>GHS ${(it.qty*it.price).toFixed(2)}</td></tr>`).join('');
+  document.getElementById('acc-sub').textContent = 'GHS '+o.proposed.toFixed(2);
+  document.getElementById('acc-disc').value = 0;
+  
+  // Auto-generate receipt number using same format (e.g. 20261119-001)
+  document.getElementById('acc-receipt').value = getNextNumber('', sales);
+  
+  document.getElementById('acc-bargain-hint').style.display='none';
+  document.getElementById('acc-bargain-body').classList.remove('hidden');
+  recalcAcc();
+}
+function recalcAcc(){
+  const o = orders.find(x=>x.id===bargainOrderId); if(!o) return;
+  const disc = +document.getElementById('acc-disc').value||0;
+  const taxable = Math.max(0, o.proposed-disc);
+  const tax = taxable*0.15;
+  document.getElementById('acc-tax').textContent = 'GHS '+tax.toFixed(2);
+  document.getElementById('acc-final').textContent = 'GHS '+(taxable+tax).toFixed(2);
+}
+function cancelBargain(){
+  bargainOrderId = null;
+  document.getElementById('acc-bargain-hint').style.display='block';
+  document.getElementById('acc-bargain-body').classList.add('hidden');
+}
+function approveAndIssueReceipt(){
+  const o = orders.find(x=>x.id===bargainOrderId); if(!o) return;
+  const disc = +document.getElementById('acc-disc').value||0;
+  
+  let receiptNo = document.getElementById('acc-receipt').value.trim();
+  if(!receiptNo) receiptNo = getNextNumber('', sales);
 
-  // Start listening for Firestore data now that every function above
-  // (attachStudentsListener, render, etc.) actually exists — but only
-  // if Firebase actually initialized. If it didn't, the PIN pad and
-  // app shell still work; you'll just see an empty student list and
-  // the error badge above until the Firebase issue is fixed.
-  if (!firebaseInitError) {
-    attachStudentsListener();
-    attachClassesListener();
-    attachAssignmentMetaListener();
-    attachEventsListener();
-    attachResourcesListener();
-    attachAnnouncementsListener();
-  }
+  const method = document.getElementById('acc-method').value;
+  const taxable = Math.max(0, o.proposed-disc);
+  const tax = taxable*0.15;
+  
+  o.discount = disc;
+  o.finalTotal = taxable+tax;
+  o.receiptNo = receiptNo;
+  o.method = method;
+  o.status = 'awaiting_confirm';
+  
+  DB.set('orders', orders);
+  cancelBargain();
+  renderAccounts();
+  showAccountsReceipt(o);
+}
+function showAccountsReceipt(o){
+  const tax = o.finalTotal - Math.max(0, o.proposed-o.discount);
+  document.getElementById('receipt-text').textContent =
+`================================
+   WHOLESALE CLOTH & BALE POS
+================================
+Receipt: ${o.receiptNo}
+Order:   ${o.id}
+Date: ${new Date().toLocaleString()}
+Customer: ${o.customerName}
+Sales: ${o.salesperson}
+--------------------------------
+${o.items.map(i=>`${i.name}\n  ${i.qty} x GHS ${i.price.toFixed(2)} = GHS ${(i.qty*i.price).toFixed(2)}`).join('\n')}
+--------------------------------
+Subtotal:  GHS ${o.proposed.toFixed(2)}
+Discount:  GHS ${o.discount.toFixed(2)}
+Tax (15%): GHS ${tax.toFixed(2)}
+TOTAL:     GHS ${o.finalTotal.toFixed(2)}
+Method:    ${o.method}
+================================
+  Give this to customer.
+  Salesperson will confirm receipt.
+================================`;
+  openModal('receiptModal');
+}
+
+/* ================= PRODUCTS ================= */
+function renderProducts(){
+  const q = (document.getElementById('prod-search').value||'').toLowerCase();
+  const list = products.filter(p=>(p.name+' '+p.sku+' '+p.cat).toLowerCase().includes(q));
+  document.getElementById('prod-rows').innerHTML = list.map(p=>`
+    <tr>
+      <td>${p.sku}</td><td><b>${p.name}</b></td><td>${p.cat}</td><td>${p.unit}</td><td>${p.qty}</td>
+      <td>GHS ${p.cost.toFixed(2)}</td><td>GHS ${p.whole.toFixed(2)}</td><td>GHS ${p.retail.toFixed(2)}</td>
+      <td>${p.qty<=p.reorder?'<span class="st-low">LOW</span>':'<span class="st-ok">OK</span>'}</td>
+      <td>
+        <button class="btn blue sm" onclick="editProduct('${p.id}')">Edit</button>
+        <button class="btn orange sm" onclick="restock('${p.id}')">+Stock</button>
+        <button class="btn red sm" onclick="delProduct('${p.id}')">✕</button>
+      </td>
+    </tr>`).join('') || '<tr><td colspan="10" style="text-align:center;color:#777">No products.</td></tr>';
+  document.getElementById('k-prod').textContent = products.length;
+  document.getElementById('k-low').textContent = products.filter(p=>p.qty<=p.reorder).length;
+  document.getElementById('k-value').textContent = 'GHS '+products.reduce((a,p)=>a+p.qty*p.cost,0).toFixed(0);
+}
+function editProduct(id){
+  const p = products.find(x=>x.id===id); if(!p) return;
+  document.getElementById('prod-modal-title').textContent = '✏️ Edit Product';
+  document.getElementById('p-edit-id').value = id;
+  ['name','sku','cat','unit','qty','reorder','cost','whole','retail','supplier'].forEach(k=>{
+    const el = document.getElementById('p-'+k); if(el) el.value = p[k] ?? '';
+  });
+  openModal('productModal');
+}
+function saveProduct(){
+  const id = document.getElementById('p-edit-id').value;
+  const name = document.getElementById('p-name').value.trim();
+  if(!name){ alert('Name is required.'); return; }
+  const rec = {
+    name, sku: document.getElementById('p-sku').value.trim() || 'SKU-'+Date.now().toString().slice(-6),
+    cat: document.getElementById('p-cat').value, unit: document.getElementById('p-unit').value,
+    qty: +document.getElementById('p-qty').value||0, reorder: +document.getElementById('p-reorder').value||0,
+    cost: +document.getElementById('p-cost').value||0, whole: +document.getElementById('p-whole').value||0,
+    retail: +document.getElementById('p-retail').value||0, supplier: document.getElementById('p-supplier').value.trim()
+  };
+  if(id){ const i = products.findIndex(x=>x.id===id); products[i] = {...products[i], ...rec}; }
+  else { rec.id = 'P'+Date.now(); products.push(rec); }
+  DB.set('products', products);
+  closeModal('productModal');
+  document.getElementById('prod-modal-title').textContent = '+ Add Product';
+  document.getElementById('p-edit-id').value = '';
+  renderProducts(); if(currentUser?.role==='sales') renderPos();
+}
+function restock(id){
+  const p = products.find(x=>x.id===id); if(!p) return;
+  const n = prompt('How many '+p.unit+'(s) to add?', '10');
+  if(n===null) return;
+  p.qty += Math.max(0, +n||0);
+  DB.set('products', products); renderProducts();
+  if(currentUser?.role==='sales') renderPos();
+}
+function delProduct(id){
+  if(!confirm('Delete this product (demo)?')) return;
+  products = products.filter(p=>p.id!==id);
+  DB.set('products', products); renderProducts();
+  if(currentUser?.role==='sales') renderPos();
+}
+
+/* ================= CUSTOMERS ================= */
+function renderCustomers(){
+  const q = (document.getElementById('cust-search').value||'').toLowerCase();
+  const list = customers.filter(c=>(c.name+' '+c.phone+' '+c.type).toLowerCase().includes(q));
+  document.getElementById('cust-rows').innerHTML = list.map(c=>`
+    <tr>
+      <td><b>${c.name}</b></td><td>${c.phone}</td><td>${c.type}</td>
+      <td>${c.credit>0?'<span class="st-credit">GHS '+c.credit.toFixed(2)+'</span>':'GHS 0.00'}</td>
+      <td>
+        ${c.credit>0?`<button class="btn primary sm" onclick="payCredit('${c.id}')">Receive Payment</button>`:''}
+        <button class="btn red sm" onclick="delCustomer('${c.id}')">✕</button>
+      </td>
+    </tr>`).join('') || '<tr><td colspan="5" style="text-align:center;color:#777">No customers.</td></tr>';
+}
+function saveCustomer(){
+  const name = document.getElementById('c-name').value.trim();
+  if(!name){ alert('Name is required.'); return; }
+  customers.push({
+    id:'C'+Date.now(), name, phone:document.getElementById('c-phone').value||'—',
+    type:document.getElementById('c-type').value, addr:document.getElementById('c-addr').value||'—', credit:0
+  });
+  DB.set('customers', customers);
+  closeModal('customerModal');
+  document.getElementById('c-name').value=''; document.getElementById('c-phone').value=''; document.getElementById('c-addr').value='';
+  renderCustomers(); if(currentUser?.role==='sales') renderPos();
+}
+function payCredit(id){
+  const c = customers.find(x=>x.id===id); if(!c) return;
+  const amt = prompt('Amount received from '+c.name+'? (owed GHS '+c.credit.toFixed(2)+')', c.credit.toFixed(2));
+  if(amt===null) return;
+  const n = Math.max(0, Math.min(c.credit, +amt||0));
+  c.credit -= n;
+  DB.set('customers', customers); renderCustomers();
+  alert('Received GHS '+n.toFixed(2)+'. Remaining credit: GHS '+c.credit.toFixed(2)+' (demo).');
+}
+function delCustomer(id){
+  if(!confirm('Delete this customer (demo)?')) return;
+  customers = customers.filter(c=>c.id!==id);
+  if(selCustomer===id) selCustomer = customers[0]?.id||'';
+  DB.set('customers', customers); renderCustomers();
+  if(currentUser?.role==='sales') renderPos();
+}
+
+/* ================= SALES HISTORY ================= */
+function renderSales(){
+  document.getElementById('sales-rows').innerHTML = sales.map(s=>`
+    <tr>
+      <td>${s.id}</td><td>${new Date(s.date).toLocaleString()}</td><td>${s.customer}</td>
+      <td>${s.salesperson}</td><td>GHS ${s.total.toFixed(2)}</td>
+      <td>${s.method}</td>
+      <td>${s.status==='Paid'?'<span class="st-ok">Paid</span>':'<span class="st-credit">Credit</span>'}</td>
+      <td><button class="btn blue sm" onclick="showReceipt(sales.find(x=>x.id==='${s.id}'))">Receipt</button></td>
+    </tr>`).join('') || '<tr><td colspan="8" style="text-align:center;color:#777">No closed sales yet.</td></tr>';
+  document.getElementById('k-sales-count').textContent = sales.length;
+  document.getElementById('k-sales-total').textContent = 'GHS '+sales.reduce((a,s)=>a+s.total,0).toFixed(2);
+  document.getElementById('k-sales-profit').textContent = 'GHS '+sales.reduce((a,s)=>a+(s.profit||0),0).toFixed(2);
+}
+function showReceipt(s){
+  document.getElementById('receipt-text').textContent =
+`================================
+   WHOLESALE CLOTH & BALE POS
+================================
+Receipt: ${s.id}
+Date: ${new Date(s.date).toLocaleString()}
+Customer: ${s.customer}
+Sales: ${s.salesperson}
+--------------------------------
+${s.items.map(i=>`${i.name}\n  ${i.qty} x GHS ${i.price.toFixed(2)} = GHS ${(i.qty*i.price).toFixed(2)}`).join('\n')}
+--------------------------------
+Subtotal:  GHS ${s.subtotal.toFixed(2)}
+Discount:  GHS ${s.discount.toFixed(2)}
+TOTAL:     GHS ${s.total.toFixed(2)}
+Method:    ${s.method}
+Status:    ${s.status}
+================================
+   Thank you for your business!
+================================`;
+  openModal('receiptModal');
+}
+
+/* ================= REPORTS ================= */
+function renderReports(){
+  const today = new Date().toDateString();
+  const todays = sales.filter(s=>new Date(s.date).toDateString()===today);
+  const tRev = todays.reduce((a,s)=>a+s.total,0);
+  const tProfit = todays.reduce((a,s)=>a+(s.profit||0),0);
+  document.getElementById('rep-today').innerHTML = `
+    <table><tr><th>Sales</th><td>${todays.length}</td></tr>
+    <tr><th>Revenue</th><td>GHS ${tRev.toFixed(2)}</td></tr>
+    <tr><th>Est. Profit</th><td>GHS ${tProfit.toFixed(2)}</td></tr>
+    <tr><th>Credit Given</th><td>GHS ${todays.filter(s=>s.status==='Credit').reduce((a,s)=>a+s.total,0).toFixed(2)}</td></tr></table>`;
+  const counts = {};
+  sales.forEach(s=>s.items.forEach(i=>{ counts[i.name] = (counts[i.name]||0)+i.qty; }));
+  const top = Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,5);
+  document.getElementById('rep-top').innerHTML = '<table><tr><th>Product</th><th>Qty Sold</th></tr>'+
+    (top.map(([n,q])=>`<tr><td>${n}</td><td>${q}</td></tr>`).join('') || '<tr><td colspan="2">No sales yet.</td></tr>')+'</table>';
+}
+
+/* ================= MODAL ================= */
+function openModal(id){ document.getElementById(id).classList.remove('hidden'); }
+function closeModal(id){ document.getElementById(id).classList.add('hidden'); }
+
+/* ================= INIT ================= */
+document.getElementById('login-pass').addEventListener('keydown', e=>{ if(e.key==='Enter') doLogin(); });
 </script>
 </body>
 </html>
